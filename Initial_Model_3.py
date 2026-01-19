@@ -128,7 +128,7 @@ class SMEComplianceModel(Model):
                 beta = self.kappa * (1.0 - mu)
                 propensity = float(self.rng.beta(alpha, beta)) 
 
-            # --- NEW: Generate Turnover based on Size Category ---
+            #  Generate Turnover based on Size Category
             # Using typical SME bands (approximate)
             if s == "Micro":
                 turnover = self.rng.uniform(10_000, 2_000_000)
@@ -136,8 +136,8 @@ class SMEComplianceModel(Model):
                 turnover = self.rng.uniform(2_000_000, 10_000_000)
             else: # Medium
                 turnover = self.rng.uniform(10_000_000, 50_000_000)
-            
-            # --- NEW: Generate Tax Rate ---
+        
+            # Generate Tax Rate
             # Random effective tax rate between 15% and 25%
             tax_rate = self.rng.uniform(0.15, 0.25)
 
@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
     print("Total number of agents:", len(model.agents))
 
-    # --- RESTORED: Initial Propensity Reporting ---
+    # Initial Propensity Reporting 
     group_counts = Counter((a.size_cat, a.age_cat) for a in model.agents)
 
     print("\nInitial mean propensity per group:")
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     for _ in range(T):
         model.step()
 
-    # --- RESTORED: Final Propensity Reporting ---
+    #  Final Propensity Reporting
     print(f"\nMean propensity per group after {T} steps:")
     prop_by_group.clear()
 
@@ -245,7 +245,7 @@ if __name__ == "__main__":
         print(f"{size:7s} | {age:7s} | {n}")
 
 
-    # --- NEW: Tax Gap Calculation ---
+    #  Tax Gap Calculation 
     total_potential_tax = 0.0
     total_actual_tax = 0.0
     gap_by_group = defaultdict(lambda: {"potential": 0.0, "actual": 0.0})
