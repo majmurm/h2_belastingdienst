@@ -1,3 +1,6 @@
+
+README of original repo that allowed us to use Figma prototype:
+
 # Figma Make Local Runner
 
 A skeleton project designed to run code downloaded from Figma Make locally, so you can easily modify the generated code with your favorite tools.
