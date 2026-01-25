@@ -347,7 +347,7 @@ class SMEComplianceModel(Model):
         Coordinates the 'Tax Calendar' of communications and audits.
         """
         current_week = self.step_count % 52
-
+        self.current_week = current_week
         # 1. Define Critical Weeks
         week_early = self.tax_deadline_week - 4  # Week 8
         week_mid = self.tax_deadline_week - 2  # Week 10

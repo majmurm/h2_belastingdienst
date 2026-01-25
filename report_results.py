@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 
 
 # Number of Agents
-N = 10000
+N = 1000
 
 # Demographics
 size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
@@ -21,17 +21,29 @@ age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
 C_target = 0.693
 # C_target = 0.924 # alternative for individuals
 
-# Audit Rates (Base Weekly Rates)
+# # Audit Rates (Base Weekly Rates)
+# audit_rates = {
+#     ("Micro", "Young"): 0.0046,
+#     ("Micro", "Mature"): 0.0046,
+#     ("Micro", "Old"): 0.0046,
+#     ("Small", "Young"): 0.0046,
+#     ("Small", "Mature"): 0.0046,
+#     ("Small", "Old"): 0.0046,
+#     ("Medium", "Young"): 0.0046,
+#     ("Medium", "Mature"): 0.0046,
+#     ("Medium", "Old"): 0.0046,
+# }
+
 audit_rates = {
-    ("Micro", "Young"): 0.0046,
-    ("Micro", "Mature"): 0.0046,
-    ("Micro", "Old"): 0.0046,
-    ("Small", "Young"): 0.0046,
-    ("Small", "Mature"): 0.0046,
-    ("Small", "Old"): 0.0046,
-    ("Medium", "Young"): 0.0046,
-    ("Medium", "Mature"): 0.0046,
-    ("Medium", "Old"): 0.0046,
+    ("Micro", "Young"): 0.02,
+    ("Micro", "Mature"): 0.02,
+    ("Micro", "Old"): 0.02,
+    ("Small", "Young"): 0.02,
+    ("Small", "Mature"): 0.02,
+    ("Small", "Old"): 0.02,
+    ("Medium", "Young"): 0.02,
+    ("Medium", "Mature"): 0.02,
+    ("Medium", "Old"): 0.02,
 }
 
 # Distinct effects for different channels

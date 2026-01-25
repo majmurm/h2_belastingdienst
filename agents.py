@@ -49,6 +49,7 @@ class SMEAgent(Agent):
         self.turnover = turnover
         self.tax_rate = tax_rate
         self.has_advisor = has_advisor
+        self.current_commun = 0.0
 
         # Auditing flags
         self.audit_impact = 0.0  # Stores the effect size of the specific audit received
@@ -63,7 +64,8 @@ class SMEAgent(Agent):
 
     def communicate(self):
         """
-        Make agents communicate with each other, influencing their propensity.
+        Make agents communicate with each other, influencing their propensity. The current
+        agent is the one being communicated to (directional).
 
         A value of 0 means there is no influence from inter communication. A value larger
         than 0 influences propensity positively, a value less than 0 influences the
@@ -71,14 +73,27 @@ class SMEAgent(Agent):
 
         Agents communicate in the following situations:
         1. After an agent is audited, they will communicate this to their neighbours.
-        2. After being communicated to by the belastingdienst.
-        3. Close to the tax deadline.
-        4. Randomly
+        2. Close to the tax deadline.
+        3. Randomly
         """
-
+        comm_effect = 0
         for neighbor in self.cell.neighborhood:
-            pass
-        return 0
+            communicator = neighbor.agents[0]
+
+            # 1. After a neighbor is audited, it is communicated with other neighbors (part
+            # of Bomb-Crater effect)
+            if communicator.last_audit_step == self.model.step_count:
+                comm_effect += 0.005
+
+            # 2. Once the tax deadline comes close, agents are more likely to discuss taxes
+            comm_effect += (
+                (52 - self.model.current_week) * self.model.rng.random() * 0.000005
+            )
+
+            # 3. Agents can also randomly discuss their taxes
+            comm_effect += self.model.rng.random() * 0.000005
+
+        return comm_effect
 
     def step(self):
         """
