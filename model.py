@@ -66,7 +66,21 @@ class SMEComplianceModel(Model):
         n_neighbours: int = 4,
     ):
         """
-        TODO: add descriptions of agent characteristics and general description of model
+        Parameters:
+            N: number of agents,
+            size_shares: distribution of sizes of SMEs (small, medium, large),
+            age_shares: distribution of ages of SMEs (young, mature, old),
+            C_target: target compliance (mean of Beta distribution),
+            m_size: weight of size on propensity,
+            m_age: weight of age on propensity,
+            kappa: concentration parameter (variance of Beta distribution),
+            audit_rates: rate of audits per category of SME,
+            audit_types: 3 types of audits with associated costs,
+            channel_effects: effect size of communication channels,
+            intervention_costs: costs of communication channels,
+            decay_factor: natural decay in compliance,
+            seed: random seed for reproducibility,
+            n_neighbours: average number of neighbors each agent has
         """
         super().__init__()
         self.rng = np.random.default_rng(seed=seed)
@@ -91,7 +105,7 @@ class SMEComplianceModel(Model):
         self.decay_factor = decay_factor
 
         # Tracking variables
-        self.total_compliance_costs = 0.0
+        self.total_compliance_costs = 0.0  # Track total amount spent
         self.current_commun = 0.0
         self.sector_warnings = {}  # Stores active warnings per group
         self.is_high_urgency_week = False  # Flag to signal agents when to learn
