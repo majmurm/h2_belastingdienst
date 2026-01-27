@@ -6,8 +6,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..");
-const modelPath = path.join(repoRoot, "Initial_Model_visualization5.py");
+const repoRoot = path.resolve(__dirname, "../..");
+const modelPath = path.join(repoRoot, "dashboard", "model_adapter.py");
 const pythonCmd = process.env.PYTHON || "python3";
 const port = process.env.MODEL_PORT ? Number(process.env.MODEL_PORT) : 7071;
 
@@ -30,7 +30,7 @@ const writeJson = (res, statusCode, payload) => {
   res.end(JSON.stringify(payload));
 };
 
-const runModel = async (config) => {
+const runModel = async (config, { signal } = {}) => {
   const tempDir = await fs.mkdtemp(path.join(tmpdir(), "sme-model-"));
   const configPath = path.join(tempDir, "config.json");
   await fs.writeFile(configPath, JSON.stringify(config), "utf-8");
@@ -42,6 +42,31 @@ const runModel = async (config) => {
 
     let stdout = "";
     let stderr = "";
+    let abortTimeout = null;
+
+    const killChild = () => {
+      if (child.killed) return;
+      // Try a graceful stop first, then force kill if needed.
+      child.kill("SIGTERM");
+      abortTimeout = setTimeout(() => {
+        if (!child.killed) {
+          child.kill("SIGKILL");
+        }
+      }, 2000);
+    };
+
+    const onAbort = () => {
+      killChild();
+      reject(new Error("Model run interrupted."));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -52,6 +77,15 @@ const runModel = async (config) => {
     });
 
     child.on("close", (code) => {
+      if (abortTimeout) {
+        clearTimeout(abortTimeout);
+      }
+      if (signal) {
+        signal.removeEventListener("abort", onAbort);
+      }
+      if (signal?.aborted) {
+        return;
+      }
       if (code !== 0) {
         reject(new Error(stderr || `Model exited with code ${code}.`));
         return;
@@ -73,13 +107,21 @@ const runModel = async (config) => {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/api/model/run") {
+    const abortController = new AbortController();
+    res.on("close", () => {
+      // Only treat as an interrupt if the response was not completed.
+      if (!res.writableEnded) {
+        abortController.abort();
+      }
+    });
     try {
       const body = await readBody(req);
       const config = JSON.parse(body || "{}");
-      const results = await runModel(config);
+      const results = await runModel(config, { signal: abortController.signal });
       writeJson(res, 200, results);
     } catch (err) {
-      writeJson(res, 500, { error: err.message });
+      const status = abortController.signal.aborted ? 499 : 500;
+      writeJson(res, status, { error: err.message });
     }
     return;
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { PopulationPanel } from './components/PopulationPanel';
 import { StrategyPanel } from './components/StrategyPanel';
@@ -24,6 +24,7 @@ export default function App() {
   const [estimatedRuntimeMs, setEstimatedRuntimeMs] = useState<number | null>(null);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [autoExport, setAutoExport] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [runHistory, setRunHistory] = useState<RunRecord[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -51,6 +52,30 @@ export default function App() {
     return ['current', 'current'];
   }, [runHistory]);
 
+  const estimatedRuntimeFromHistory = useMemo<number | null>(() => {
+    const samples = runHistory.filter(
+      (run) => typeof run.runtimeMs === 'number' && run.runtimeMs > 0 && run.config.steps > 0,
+    );
+
+    if (samples.length === 0) {
+      const lastRunSteps = modelResults?.config.steps ?? modelConfig.steps;
+      if (runtimeMs !== null && runtimeMs > 0 && lastRunSteps > 0) {
+        return (runtimeMs / lastRunSteps) * modelConfig.steps;
+      }
+      return null;
+    }
+
+    const avgPerStepMs =
+      samples.reduce((sum, run) => sum + (run.runtimeMs as number) / run.config.steps, 0) /
+      samples.length;
+
+    return avgPerStepMs * modelConfig.steps;
+  }, [runHistory, runtimeMs, modelConfig.steps, modelResults]);
+
+  useEffect(() => {
+    setEstimatedRuntimeMs(estimatedRuntimeFromHistory);
+  }, [estimatedRuntimeFromHistory]);
+
   const scrollToTop = () => {
     const mainElement = document.querySelector('main');
     if (mainElement) {
@@ -69,13 +94,16 @@ export default function App() {
   const handleRunSimulation = async () => {
     setIsRunning(true);
     setRunError(null);
-    setEstimatedRuntimeMs(runtimeMs);
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     const startTime = performance.now();
 
     try {
-      const results = await runModel(modelConfig);
+      const results = await runModel(modelConfig, { signal: abortController.signal });
       setModelResults(results);
-      setRuntimeMs(performance.now() - startTime);
+      const elapsedMs = performance.now() - startTime;
+      setRuntimeMs(elapsedMs);
       const initialMean = results.initial.overall_mean;
       const finalMean = results.final.overall_mean;
       const deltaMean = finalMean - initialMean;
@@ -109,6 +137,7 @@ export default function App() {
           netBenefit: summary.net_benefit,
           roiRatio: summary.roi_ratio,
         },
+        runtimeMs: elapsedMs,
       };
       setLatestRunId(runId);
       setRunHistory((prev) => [runRecord, ...prev]);
@@ -116,15 +145,25 @@ export default function App() {
       setCurrentStep(3);
       scrollToTop();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to run model.';
+      const isAbort = error instanceof DOMException && error.name === 'AbortError';
+      const message = isAbort
+        ? 'Model run interrupted.'
+        : error instanceof Error
+        ? error.message
+        : 'Failed to run model.';
       setRunError(message);
       setRuntimeMs(null);
       setActiveView('results');
       setCurrentStep(3);
       scrollToTop();
     } finally {
+      abortControllerRef.current = null;
       setIsRunning(false);
     }
+  };
+
+  const handleInterruptRun = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleCompareRuns = (runIds: [string, string]) => {
@@ -183,6 +222,7 @@ export default function App() {
             config={modelConfig}
             onConfigChange={setModelConfig}
             onRun={handleRunSimulation}
+            onInterrupt={handleInterruptRun}
             isRunning={isRunning}
             estimatedRuntimeMs={estimatedRuntimeMs}
           />

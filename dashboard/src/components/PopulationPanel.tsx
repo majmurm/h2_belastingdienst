@@ -15,6 +15,12 @@ const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
 const ageOrder: AgeCategory[] = ["Young", "Mature", "Old"];
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+const KAPPA_MIN = 50;
+const KAPPA_MAX = 1000;
+const SEED_MIN = 0;
+const SEED_MAX = 2_147_483_647;
+const GRADIENT_MIN = -0.15;
+const GRADIENT_MAX = 0.15;
 
 export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPanelProps) {
   const [distributionType, setDistributionType] = useState<"reallife" | "manual">("reallife");
@@ -32,6 +38,10 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
   };
+
+  const clampGradient = (value: number) => Math.max(GRADIENT_MIN, Math.min(GRADIENT_MAX, value));
+  const clampKappa = (value: number) => Math.max(KAPPA_MIN, Math.min(KAPPA_MAX, value));
+  const clampSeed = (value: number) => Math.max(SEED_MIN, Math.min(SEED_MAX, value));
 
   const updateShare = (
     key: SizeCategory | AgeCategory,
@@ -354,8 +364,17 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 <input
                   type="number"
                   step="0.01"
+                  min={GRADIENT_MIN}
+                  max={GRADIENT_MAX}
                   value={config.m_size}
-                  onChange={(e) => updateConfig({ m_size: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const next = parseFloat(e.target.value);
+                    if (Number.isNaN(next)) return;
+                    updateConfig({ m_size: next });
+                  }}
+                  onBlur={(e) =>
+                    updateConfig({ m_size: clampGradient(parseFloat(e.target.value) || 0) })
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
                 />
               </div>
@@ -370,8 +389,17 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 <input
                   type="number"
                   step="0.01"
+                  min={GRADIENT_MIN}
+                  max={GRADIENT_MAX}
                   value={config.m_age}
-                  onChange={(e) => updateConfig({ m_age: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const next = parseFloat(e.target.value);
+                    if (Number.isNaN(next)) return;
+                    updateConfig({ m_age: next });
+                  }}
+                  onBlur={(e) =>
+                    updateConfig({ m_age: clampGradient(parseFloat(e.target.value) || 0) })
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
                 />
               </div>
@@ -387,10 +415,18 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 </div>
                 <input
                   type="number"
-                  min="1"
+                  min={KAPPA_MIN}
+                  max={KAPPA_MAX}
                   step="1"
                   value={config.kappa}
-                  onChange={(e) => updateConfig({ kappa: Math.max(1, parseInt(e.target.value) || 1) })}
+                  onChange={(e) => {
+                    const next = parseInt(e.target.value, 10);
+                    if (Number.isNaN(next)) return;
+                    updateConfig({ kappa: next });
+                  }}
+                  onBlur={(e) =>
+                    updateConfig({ kappa: clampKappa(parseInt(e.target.value, 10) || KAPPA_MIN) })
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
                 />
               </div>
@@ -404,9 +440,18 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 </div>
                 <input
                   type="number"
+                  min={SEED_MIN}
+                  max={SEED_MAX}
                   step="1"
                   value={config.seed}
-                  onChange={(e) => updateConfig({ seed: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const next = parseInt(e.target.value, 10);
+                    if (Number.isNaN(next)) return;
+                    updateConfig({ seed: next });
+                  }}
+                  onBlur={(e) =>
+                    updateConfig({ seed: clampSeed(parseInt(e.target.value, 10) || 0) })
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
                 />
               </div>

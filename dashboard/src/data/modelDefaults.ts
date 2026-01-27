@@ -3,9 +3,9 @@ import { ModelConfig } from "./modelTypes";
 export const defaultModelConfig: ModelConfig = {
   N: 10000,
   size_shares: {
-    Micro: 0.9683,
-    Small: 0.0248,
-    Medium: 0.0053,
+    Micro: 0.9662,
+    Small: 0.0279,
+    Medium: 0.0059,
   },
   age_shares: {
     Young: 0.57,
@@ -17,15 +17,15 @@ export const defaultModelConfig: ModelConfig = {
   m_age: 0.05,
   kappa: 339,
   audit_rates: {
-    "Micro-Young": 0.0046,
-    "Micro-Mature": 0.0046,
-    "Micro-Old": 0.0046,
-    "Small-Young": 0.0046,
-    "Small-Mature": 0.0046,
-    "Small-Old": 0.0046,
-    "Medium-Young": 0.0046,
-    "Medium-Mature": 0.0046,
-    "Medium-Old": 0.0046,
+    "Micro-Young": 0.02,
+    "Micro-Mature": 0.02,
+    "Micro-Old": 0.02,
+    "Small-Young": 0.02,
+    "Small-Mature": 0.02,
+    "Small-Old": 0.02,
+    "Medium-Young": 0.02,
+    "Medium-Mature": 0.02,
+    "Medium-Old": 0.02,
   },
   audit_types: {
     Light: { effect: 0.45, cost: 500.0 },

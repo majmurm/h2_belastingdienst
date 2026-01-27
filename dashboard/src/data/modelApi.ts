@@ -1,10 +1,14 @@
 import { ModelConfig, ModelResults } from "./modelTypes";
 
-export async function runModel(config: ModelConfig): Promise<ModelResults> {
+export async function runModel(
+  config: ModelConfig,
+  options?: { signal?: AbortSignal },
+): Promise<ModelResults> {
   const response = await fetch("/api/model/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
+    signal: options?.signal,
   });
 
   if (!response.ok) {

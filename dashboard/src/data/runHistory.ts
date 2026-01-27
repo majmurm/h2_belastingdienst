@@ -17,4 +17,5 @@ export interface RunRecord {
   config: ModelConfig;
   results: ModelResults;
   summary: RunSummary;
+  runtimeMs?: number;
 }
