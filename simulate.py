@@ -5,11 +5,7 @@ Perform multiple simulations with different random seeds and different configura
 the consistency of the model output produced.
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
-from model import SMEAgent, SMEComplianceModel
-from report_results import report_tax_gap
-from collections import Counter, defaultdict
+from model import SMEComplianceModel
 import pandas as pd
 from tqdm import tqdm
 import os
@@ -20,20 +16,6 @@ age_shares_default = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target_default = 0.693
-
-# # Audit Rates (Base Weekly Rates)
-# audit_rates_default = {
-#     ("Micro", "Young"): 0.0046,
-#     ("Micro", "Mature"): 0.0046,
-#     ("Micro", "Old"): 0.0046,
-#     ("Small", "Young"): 0.0046,
-#     ("Small", "Mature"): 0.0046,
-#     ("Small", "Old"): 0.0046,
-#     ("Medium", "Young"): 0.0046,
-#     ("Medium", "Mature"): 0.0046,
-#     ("Medium", "Old"): 0.0046,
-# }
-
 
 audit_rates_default = {
     ("Micro", "Young"): 0.02,
@@ -72,6 +54,15 @@ intervention_costs_default = {
     "warning_letter": 20.96,  # Letter + ~1hr FTE for hand delivery
 }
 
+# Communication schedule
+communication_schedule_default = {
+    8: ["physical_letter", "email"],
+    6: ["email"],
+    2: ["physical_letter"],
+    1: [
+        "email"
+    ],  # Automatically becomes urgent (2x effect), because it is one week before the deadline
+}
 
 def run_simulation(
     N,
@@ -84,6 +75,7 @@ def run_simulation(
     audit_types_sim=audit_types_default,
     channel_effects_sim=channel_effects_default,
     intervention_costs_sim=intervention_costs_default,
+    communication_schedule_sim=communication_schedule_default,
 ):
 
     # Initialize model
@@ -99,6 +91,7 @@ def run_simulation(
         audit_types=audit_types_sim,
         channel_effects=channel_effects_sim,
         intervention_costs=intervention_costs_sim,
+        communication_schedule=communication_schedule_sim,
         decay_factor=0.00005,
         seed=seed_sim,
     )
