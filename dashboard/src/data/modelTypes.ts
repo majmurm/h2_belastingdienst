@@ -61,6 +61,7 @@ export interface StepMetrics {
   high_compliance_pct: number;
   tax_gap: TaxGap;
   total_cost: number;
+  network_gif?: string;
 }
 
 export interface ModelResults {

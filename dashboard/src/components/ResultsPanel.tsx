@@ -9,9 +9,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Clock, Download } from "lucide-react";
+import { Clock, Download, AlertCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ModelConfig, ModelResults, GroupKey } from "../data/modelTypes";
+import type { ModelConfig, ModelResults, GroupKey, TaxGapEntry } from "../data/modelTypes";
+
 
 interface ResultsPanelProps {
   results: ModelResults | null;
@@ -218,7 +219,7 @@ export function ResultsPanel({
   const currentStep = results?.steps[results.steps.length - 1];
   const initialStep = results?.steps[0];
 
-  const groupTaxGap = currentStep?.tax_gap.by_group ?? {};
+  const groupTaxGap = currentStep?.tax_gap.by_group ?? ({} as Record<GroupKey, TaxGapEntry>);
   const selectedSet = new Set(selectedGroups);
 
   const selectedConfig = results?.config ?? config;
@@ -259,9 +260,14 @@ export function ResultsPanel({
         </div>
       </div>
 
+
       {runError && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
-          {runError}
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-900 rounded-lg p-4 flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-red-900">Simulation Stopped</h3>
+            <p className="text-red-700 mt-1 text-sm leading-relaxed">{runError}</p>
+          </div>
         </div>
       )}
 
@@ -560,6 +566,40 @@ export function ResultsPanel({
               </div>
             </div>
           </div>
+          {/* NETWORK ANIMATION VISUALIZATION */}
+          {(results.final as any).network_gif && (
+            <div className="mb-8 print-break-inside-avoid">
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <h3 className="text-slate-900 text-md font-medium mb-4">
+                  Network Compliance Evolution (Animation)
+                </h3>
+                <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg p-4">
+                  {/* DISPLAY GIF HERE */}
+                  <img 
+                    src={`data:image/gif;base64,${(results.final as any).network_gif}`} 
+                    alt="Network Animation" 
+                    className="max-w-full h-auto rounded shadow-sm border border-slate-200"
+                    style={{ maxHeight: "600px" }}
+                  />
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-purple-700"></span>
+                        <span className="text-xs text-slate-500">Low Compliance</span>
+                    </div>
+                    <div className="h-0.5 w-12 bg-gradient-to-r from-purple-700 via-teal-500 to-yellow-400"></div>
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                        <span className="text-xs text-slate-500">High Compliance</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-2 text-center max-w-2xl">
+                    Evolution of tax compliance over {config.steps} weeks. <br/>
+                    Notice how audits (shockwaves) and behavioral nudges ripple through the network.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
