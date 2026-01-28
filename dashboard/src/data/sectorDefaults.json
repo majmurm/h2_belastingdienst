@@ -1,0 +1,57 @@
+{
+  "sectors": [
+    "Business Economy, B-N, excl. K, incl. 95",
+    "B-E Nijverheid (geen bouw) en energie",
+    "F Bouwnijverheid",
+    "G-I Handel, vervoer en horeca",
+    "J Informatie en communicatie",
+    "L Verhuur en handel van onroerend goed",
+    "M-N Zakelijke dienstverlening"
+  ],
+  "sector_shares": {
+    "Business Economy, B-N, excl. K, incl. 95": 0.501498,
+    "B-E Nijverheid (geen bouw) en energie": 0.028041,
+    "F Bouwnijverheid": 0.083331,
+    "G-I Handel, vervoer en horeca": 0.137223,
+    "J Informatie en communicatie": 0.040877,
+    "L Verhuur en handel van onroerend goed": 0.012121,
+    "M-N Zakelijke dienstverlening": 0.196909
+  },
+  "size_shares_by_sector": {
+    "Business Economy, B-N, excl. K, incl. 95": {
+      "Micro": 0.966323,
+      "Small": 0.027829,
+      "Medium": 0.005848
+    },
+    "B-E Nijverheid (geen bouw) en energie": {
+      "Micro": 0.909026,
+      "Small": 0.067146,
+      "Medium": 0.023828
+    },
+    "F Bouwnijverheid": {
+      "Micro": 0.980158,
+      "Small": 0.016979,
+      "Medium": 0.002864
+    },
+    "G-I Handel, vervoer en horeca": {
+      "Micro": 0.945205,
+      "Small": 0.047076,
+      "Medium": 0.007719
+    },
+    "J Informatie en communicatie": {
+      "Micro": 0.971263,
+      "Small": 0.023314,
+      "Medium": 0.005424
+    },
+    "L Verhuur en handel van onroerend goed": {
+      "Micro": 0.982726,
+      "Small": 0.012702,
+      "Medium": 0.004573
+    },
+    "M-N Zakelijke dienstverlening": {
+      "Micro": 0.98093,
+      "Small": 0.015582,
+      "Medium": 0.003487
+    }
+  }
+}

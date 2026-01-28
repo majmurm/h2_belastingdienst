@@ -1,8 +1,9 @@
 import { ChevronRight, Info, AlertCircle, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Tooltip } from "./Tooltip";
-import type { ModelConfig, SizeCategory, AgeCategory } from "../data/modelTypes";
+import type { ModelConfig, SizeCategory, AgeCategory, SectorKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
+import sectorDefaults from "../data/sectorDefaults.json";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
 interface PopulationPanelProps {
@@ -13,15 +14,9 @@ interface PopulationPanelProps {
 
 const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
 const ageOrder: AgeCategory[] = ["Young", "Mature", "Old"];
+const sectorList = sectorDefaults.sectors as SectorKey[];
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
-const KAPPA_MIN = 50;
-const KAPPA_MAX = 1000;
-const SEED_MIN = 0;
-const SEED_MAX = 2_147_483_647;
-const GRADIENT_MIN = -0.15;
-const GRADIENT_MAX = 0.15;
-
 export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPanelProps) {
   const [distributionType, setDistributionType] = useState<"reallife" | "manual">("reallife");
   const [openSections, setOpenSections] = useState<{ size: boolean; age: boolean }>({
@@ -39,9 +34,47 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
     onConfigChange({ ...config, ...partial });
   };
 
-  const clampGradient = (value: number) => Math.max(GRADIENT_MIN, Math.min(GRADIENT_MAX, value));
-  const clampKappa = (value: number) => Math.max(KAPPA_MIN, Math.min(KAPPA_MAX, value));
-  const clampSeed = (value: number) => Math.max(SEED_MIN, Math.min(SEED_MAX, value));
+  const computeSectorShares = (selected: SectorKey[]) => {
+    const shares = sectorDefaults.sector_shares as Record<SectorKey, number>;
+    const total = selected.reduce((sum, sector) => sum + (shares[sector] ?? 0), 0);
+    if (total <= 0) {
+      return selected.reduce<Record<SectorKey, number>>((acc, sector) => {
+        acc[sector] = 0;
+        return acc;
+      }, {} as Record<SectorKey, number>);
+    }
+    return selected.reduce<Record<SectorKey, number>>((acc, sector) => {
+      acc[sector] = (shares[sector] ?? 0) / total;
+      return acc;
+    }, {} as Record<SectorKey, number>);
+  };
+
+  const computeSizeSharesFromSectors = (selected: SectorKey[]) => {
+    const bySector = sectorDefaults.size_shares_by_sector as Record<
+      SectorKey,
+      Record<SizeCategory, number>
+    >;
+    const sectorShares = computeSectorShares(selected);
+    const totals: Record<SizeCategory, number> = { Micro: 0, Small: 0, Medium: 0 };
+    selected.forEach((sector) => {
+      const weights = bySector[sector];
+      const sectorWeight = sectorShares[sector] ?? 0;
+      if (!weights) return;
+      totals.Micro += sectorWeight * (weights.Micro ?? 0);
+      totals.Small += sectorWeight * (weights.Small ?? 0);
+      totals.Medium += sectorWeight * (weights.Medium ?? 0);
+    });
+    const total = totals.Micro + totals.Small + totals.Medium;
+    if (total <= 0) {
+      return totals;
+    }
+    return {
+      Micro: totals.Micro / total,
+      Small: totals.Small / total,
+      Medium: totals.Medium / total,
+    };
+  };
+
 
   const updateShare = (
     key: SizeCategory | AgeCategory,
@@ -63,7 +96,7 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
     setDistributionType(type);
     if (type === "reallife") {
       updateConfig({
-        size_shares: { ...defaultModelConfig.size_shares },
+        size_shares: computeSizeSharesFromSectors(config.selected_sectors),
         age_shares: { ...defaultModelConfig.age_shares },
       });
     }
@@ -325,139 +358,56 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
-            <h3 className="text-slate-900 text-md font-medium">Baseline Compliance Targets</h3>
-            <Tooltip content="Controls the mean compliance propensity before behavioral dynamics are applied.">
+            <h3 className="text-slate-900 text-md font-medium">Business Sectors</h3>
+            <Tooltip content="Select sectors to compute sector-weighted size shares and run sector-specific reporting.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            {sectorList.map((sector) => {
+              const checked = config.selected_sectors.includes(sector);
+              const sectorShare = config.sector_shares[sector] ?? 0;
+              return (
+                <label
+                  key={sector}
+                  className="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-md bg-slate-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const next = checked
+                          ? config.selected_sectors.filter((item) => item !== sector)
+                          : [...config.selected_sectors, sector];
 
-          <div className="space-y-5">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-slate-600">
-                  Target Mean Propensity (C_target)
+                        if (next.length === 0) return;
+
+                        const sectorShares = computeSectorShares(next);
+                        const nextConfig: Partial<ModelConfig> = {
+                          selected_sectors: next,
+                          sector_shares: sectorShares,
+                        };
+
+                        if (distributionType === "reallife") {
+                          nextConfig.size_shares = computeSizeSharesFromSectors(next);
+                        }
+
+                        updateConfig(nextConfig);
+                      }}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    <span className="text-slate-700 text-sm">{sector}</span>
+                  </div>
+                  <span className="text-slate-500 text-xs">
+                    {(sectorShare * 100).toFixed(1)}%
+                  </span>
                 </label>
-                <span className="text-blue-600">{config.C_target.toFixed(3)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="0.9"
-                step="0.001"
-                value={config.C_target}
-                onChange={(e) => updateConfig({ C_target: parseFloat(e.target.value) })}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #1e293b 0%, #1e293b ${((config.C_target - 0.5) / 0.4) * 100}%, #e2e8f0 ${((config.C_target - 0.5) / 0.4) * 100}%, #e2e8f0 100%)`,
-                }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="text-slate-600">Size Gradient (m_size)</label>
-                  <Tooltip content="Adjusts how compliance shifts across size categories.">
-                    <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                  </Tooltip>
-                </div>
-                <input
-                  type="number"
-                  step="0.01"
-                  min={GRADIENT_MIN}
-                  max={GRADIENT_MAX}
-                  value={config.m_size}
-                  onChange={(e) => {
-                    const next = parseFloat(e.target.value);
-                    if (Number.isNaN(next)) return;
-                    updateConfig({ m_size: next });
-                  }}
-                  onBlur={(e) =>
-                    updateConfig({ m_size: clampGradient(parseFloat(e.target.value) || 0) })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="text-slate-600">Age Gradient (m_age)</label>
-                  <Tooltip content="Adjusts how compliance shifts across age categories.">
-                    <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                  </Tooltip>
-                </div>
-                <input
-                  type="number"
-                  step="0.01"
-                  min={GRADIENT_MIN}
-                  max={GRADIENT_MAX}
-                  value={config.m_age}
-                  onChange={(e) => {
-                    const next = parseFloat(e.target.value);
-                    if (Number.isNaN(next)) return;
-                    updateConfig({ m_age: next });
-                  }}
-                  onBlur={(e) =>
-                    updateConfig({ m_age: clampGradient(parseFloat(e.target.value) || 0) })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="text-slate-600">Dispersion (kappa)</label>
-                  <Tooltip content="Higher values tighten the beta distribution around the mean.">
-                    <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                  </Tooltip>
-                </div>
-                <input
-                  type="number"
-                  min={KAPPA_MIN}
-                  max={KAPPA_MAX}
-                  step="1"
-                  value={config.kappa}
-                  onChange={(e) => {
-                    const next = parseInt(e.target.value, 10);
-                    if (Number.isNaN(next)) return;
-                    updateConfig({ kappa: next });
-                  }}
-                  onBlur={(e) =>
-                    updateConfig({ kappa: clampKappa(parseInt(e.target.value, 10) || KAPPA_MIN) })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="text-slate-600">Random Seed</label>
-                  <Tooltip content="Controls random draws for reproducibility.">
-                    <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                  </Tooltip>
-                </div>
-                <input
-                  type="number"
-                  min={SEED_MIN}
-                  max={SEED_MAX}
-                  step="1"
-                  value={config.seed}
-                  onChange={(e) => {
-                    const next = parseInt(e.target.value, 10);
-                    if (Number.isNaN(next)) return;
-                    updateConfig({ seed: next });
-                  }}
-                  onBlur={(e) =>
-                    updateConfig({ seed: clampSeed(parseInt(e.target.value, 10) || 0) })
-                  }
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-                />
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
+
       </div>
 
       <div className="mt-8 flex justify-end">

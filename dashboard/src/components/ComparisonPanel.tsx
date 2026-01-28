@@ -44,12 +44,15 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
     return <div className="p-12">Select two runs to compare.</div>;
   }
 
-  const complianceData = [
+  const finalComplianceData = [
     {
       metric: "Final Compliance (%)",
       strategyA: strategyA.summary.finalMean * 100,
       strategyB: strategyB.summary.finalMean * 100,
     },
+  ];
+
+  const deltaMeanData = [
     {
       metric: "Delta Mean",
       strategyA: strategyA.summary.deltaMean,
@@ -327,17 +330,36 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
       {/* Outcome Charts */}
       <div className="bg-white rounded-lg border border-slate-200 p-8 mb-8">
         <h3 className="text-slate-900 text-md font-medium mb-4">Outcome Comparison</h3>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={complianceData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="strategyA" fill="#3b82f6" name="Strategy A" />
-            <Bar dataKey="strategyB" fill="#f97316" name="Strategy B" />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div>
+            <h4 className="text-slate-700 font-medium mb-2">Final Compliance</h4>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={finalComplianceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="strategyA" fill="#3b82f6" name="Strategy A" />
+                <Bar dataKey="strategyB" fill="#f97316" name="Strategy B" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <h4 className="text-slate-700 font-medium mb-2">Delta Mean</h4>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={deltaMeanData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="strategyA" fill="#3b82f6" name="Strategy A" />
+                <Bar dataKey="strategyB" fill="#f97316" name="Strategy B" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
         <div className="mt-6">
           <h4 className="text-slate-700 font-medium mb-3">Financial Impact</h4>
           <div className="grid grid-cols-2 gap-4 text-sm text-slate-600">

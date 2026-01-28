@@ -39,6 +39,12 @@ export default function App() {
           netBenefit: run.summary.netBenefit ?? 0,
           roiRatio: run.summary.roiRatio ?? 0,
         },
+        config: {
+          ...defaultModelConfig,
+          ...run.config,
+          sector_shares: run.config.sector_shares ?? defaultModelConfig.sector_shares,
+          selected_sectors: run.config.selected_sectors ?? defaultModelConfig.selected_sectors,
+        },
       }));
     } catch {
       return [];

@@ -1,17 +1,40 @@
-import { ModelConfig } from "./modelTypes";
+import { ModelConfig, SectorKey, SizeCategory } from "./modelTypes";
+import sectorDefaults from "./sectorDefaults.json";
+
+const computeSizeSharesFromSectors = (selected: SectorKey[]) => {
+  const bySector = sectorDefaults.size_shares_by_sector as Record<
+    SectorKey,
+    Record<SizeCategory, number>
+  >;
+  const sectorShares = sectorDefaults.sector_shares as Record<SectorKey, number>;
+  const totals: Record<SizeCategory, number> = { Micro: 0, Small: 0, Medium: 0 };
+  selected.forEach((sector) => {
+    const weights = bySector[sector];
+    const sectorWeight = sectorShares[sector] ?? 0;
+    if (!weights) return;
+    totals.Micro += sectorWeight * (weights.Micro ?? 0);
+    totals.Small += sectorWeight * (weights.Small ?? 0);
+    totals.Medium += sectorWeight * (weights.Medium ?? 0);
+  });
+  const total = totals.Micro + totals.Small + totals.Medium;
+  if (total <= 0) return totals;
+  return {
+    Micro: totals.Micro / total,
+    Small: totals.Small / total,
+    Medium: totals.Medium / total,
+  };
+};
 
 export const defaultModelConfig: ModelConfig = {
-  N: 10000,
-  size_shares: {
-    Micro: 0.9662,
-    Small: 0.0279,
-    Medium: 0.0059,
-  },
+  N: 1000,
+  size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors as SectorKey[]),
   age_shares: {
     Young: 0.57,
     Mature: 0.04,
     Old: 0.39,
   },
+  sector_shares: sectorDefaults.sector_shares,
+  selected_sectors: sectorDefaults.sectors,
   C_target: 0.693,
   m_size: 0.05,
   m_age: 0.05,

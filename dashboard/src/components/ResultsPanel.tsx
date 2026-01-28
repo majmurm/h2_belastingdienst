@@ -316,6 +316,24 @@ export function ResultsPanel({
           </div>
 
           <div className="mb-8">
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <h3 className="text-slate-900 text-md font-medium mb-4">
+                Sector Coverage & Compliance
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {selectedConfig.selected_sectors.map((sector) => (
+                  <div key={sector} className="flex justify-between gap-4">
+                    <span className="text-slate-600">{sector}</span>
+                    <span className="text-slate-900">
+                      {currentStep?.mean_by_sector?.[sector]?.toFixed(3) ?? "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Key Performance Indicators</h3>
             <div className="grid grid-cols-4 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">

@@ -4,11 +4,21 @@ export type GroupKey = `${SizeCategory}-${AgeCategory}`;
 
 export type ChannelKey = "physical_letter" | "email" | "warning_letter";
 export type AuditTypeKey = "Light" | "Standard" | "Deep";
+export type SectorKey =
+  | "Business Economy, B-N, excl. K, incl. 95"
+  | "B-E Nijverheid (geen bouw) en energie"
+  | "F Bouwnijverheid"
+  | "G-I Handel, vervoer en horeca"
+  | "J Informatie en communicatie"
+  | "L Verhuur en handel van onroerend goed"
+  | "M-N Zakelijke dienstverlening";
 
 export interface ModelConfig {
   N: number;
   size_shares: Record<SizeCategory, number>;
   age_shares: Record<AgeCategory, number>;
+  sector_shares: Record<SectorKey, number>;
+  selected_sectors: SectorKey[];
   C_target: number;
   m_size: number;
   m_age: number;
@@ -39,12 +49,14 @@ export interface TaxGap {
   gap_pct: number;
   by_size: Record<SizeCategory, TaxGapEntry>;
   by_group: Record<GroupKey, TaxGapEntry>;
+  by_sector: Record<SectorKey, TaxGapEntry>;
 }
 
 export interface StepMetrics {
   step: number;
   overall_mean: number;
   mean_by_group: Record<GroupKey, number>;
+  mean_by_sector: Record<SectorKey, number>;
   overall_audited_pct: number;
   high_compliance_pct: number;
   tax_gap: TaxGap;
@@ -56,6 +68,7 @@ export interface ModelResults {
   initial: {
     overall_mean: number;
     mean_by_group: Record<GroupKey, number>;
+    mean_by_sector: Record<SectorKey, number>;
     tax_gap: TaxGap;
   };
   steps: StepMetrics[];

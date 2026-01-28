@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
-import { Info, ChevronRight, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Info, ChevronRight } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey, ChannelKey } from "../data/modelTypes";
+import { defaultModelConfig } from "../data/modelDefaults";
 
 interface StrategyPanelProps {
   config: ModelConfig;
@@ -42,13 +43,29 @@ export function StrategyPanel({
   isRunning,
   estimatedRuntimeMs,
 }: StrategyPanelProps) {
-  const [fteHourPrice, setFteHourPrice] = useState(20.11);
-  const [deepAuditHours, setDeepAuditHours] = useState(78);
-  const [isDeepEstimatorOpen, setIsDeepEstimatorOpen] = useState(false);
+  const [auditRateInputs, setAuditRateInputs] = useState<Record<string, string>>({});
+  const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>({
+    Light: 20.11,
+    Standard: 20.11,
+    Deep: 20.11,
+  });
+  const [auditHours, setAuditHours] = useState<Record<AuditTypeKey, number>>({
+    Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20.11)),
+    Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20.11)),
+    Deep: 78,
+  });
 
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
   };
+
+  useEffect(() => {
+    const formatted: Record<string, string> = {};
+    Object.entries(config.audit_rates).forEach(([key, value]) => {
+      formatted[key] = (value * 100).toFixed(2);
+    });
+    setAuditRateInputs(formatted);
+  }, [config.audit_rates]);
 
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
@@ -76,6 +93,20 @@ export function StrategyPanel({
     });
   };
 
+  const resetAuditType = (type: AuditTypeKey) => {
+    const defaultCost = defaultModelConfig.audit_types[type].cost;
+    const defaultPrice = 20.11;
+    const defaultHours = Math.max(0, Math.round(defaultCost / defaultPrice));
+    setAuditHourPrice((prev) => ({ ...prev, [type]: defaultPrice }));
+    setAuditHours((prev) => ({ ...prev, [type]: defaultHours }));
+    updateConfig({
+      audit_types: {
+        ...config.audit_types,
+        [type]: { ...defaultModelConfig.audit_types[type] },
+      },
+    });
+  };
+
   const updateChannel = (channel: ChannelKey, field: "effect" | "cost", value: number) => {
     if (field === "effect") {
       const effect = Math.max(0, Math.min(CHANNEL_EFFECT_MAX, value));
@@ -96,10 +127,8 @@ export function StrategyPanel({
     });
   };
 
-  const deepAuditSuggestedCost = useMemo(() => {
-    const suggestion = fteHourPrice * deepAuditHours;
-    return Math.max(0, Math.min(AUDIT_COST_MAX, suggestion));
-  }, [fteHourPrice, deepAuditHours]);
+  const computeAuditCost = (type: AuditTypeKey, hours: number, price: number) =>
+    Math.max(0, Math.min(AUDIT_COST_MAX, hours * price));
 
   return (
     <div className="p-12 max-w-6xl">
@@ -195,101 +224,59 @@ export function StrategyPanel({
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Audit Types</h3>
-            <Tooltip content="Define effect and cost for Light, Standard, and Deep audits.">
+            <Tooltip content="Define effect and cost inputs for Light, Standard, and Deep audits.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
+
           <div className="grid grid-cols-3 gap-6">
             {auditTypeOrder.map((type) => (
               <div key={type} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="text-slate-700 font-medium mb-3">{type}</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-slate-700 font-medium">{type}</div>
+                  <button
+                    type="button"
+                    onClick={() => resetAuditType(type)}
+                    className="text-xs text-slate-600 hover:text-slate-900"
+                  >
+                    Reset to default
+                  </button>
+                </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-slate-600 text-sm block mb-1">Effect</label>
+                    <label className="text-slate-600 text-sm block mb-1">Hours per audit</label>
                     <input
                       type="number"
-                      step="0.01"
                       min="0"
-                      value={config.audit_types[type].effect}
-                      onChange={(e) => updateAuditType(type, "effect", parseFloat(e.target.value) || 0)}
+                      step="1"
+                      value={auditHours[type]}
+                      onChange={(e) => {
+                        const next = parseFloat(e.target.value) || 0;
+                        setAuditHours((prev) => ({ ...prev, [type]: next }));
+                        const cost = computeAuditCost(type, next, auditHourPrice[type]);
+                        updateAuditType(type, "cost", cost);
+                      }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="text-slate-600 text-sm block mb-1">Cost (EUR)</label>
+                    <label className="text-slate-600 text-sm block mb-1">FTE hour price</label>
                     <input
                       type="number"
-                      step="1"
                       min="0"
-                      max={AUDIT_COST_MAX}
-                      value={config.audit_types[type].cost}
-                      onChange={(e) => updateAuditType(type, "cost", parseFloat(e.target.value) || 0)}
+                      step="0.01"
+                      value={auditHourPrice[type]}
+                      onChange={(e) => {
+                        const next = parseFloat(e.target.value) || 0;
+                        setAuditHourPrice((prev) => ({ ...prev, [type]: next }));
+                        const cost = computeAuditCost(type, auditHours[type], next);
+                        updateAuditType(type, "cost", cost);
+                      }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
-                    {type === "Deep" && (
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() => setIsDeepEstimatorOpen((prev) => !prev)}
-                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-md border border-slate-200 bg-slate-50 text-slate-800 text-sm hover:bg-slate-100 transition-colors"
-                          aria-expanded={isDeepEstimatorOpen}
-                        >
-                          <span className="font-medium">Deep audit cost estimator</span>
-                          <div className="flex items-center gap-2 text-slate-500">
-                            <span className="text-xs">{isDeepEstimatorOpen ? "Hide" : "Show"}</span>
-                            <ChevronDown
-                              className={`w-4 h-4 transition-transform ${
-                                isDeepEstimatorOpen ? "rotate-180" : ""
-                              }`}
-                            />
-                          </div>
-                        </button>
-
-                        {isDeepEstimatorOpen && (
-                          <div className="mt-2 p-3 bg-white border border-slate-200 rounded-md">
-                            <div className="text-xs text-slate-600 mb-2">
-                              FTE hour price × hours per audit
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 mb-2">
-                              <div>
-                                <label className="text-slate-600 text-xs block mb-1">FTE hour price</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={fteHourPrice}
-                                  onChange={(e) => setFteHourPrice(parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-slate-600 text-xs block mb-1">Hours per audit</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={deepAuditHours}
-                                  onChange={(e) => setDeepAuditHours(parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-xs"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="text-xs text-slate-700">
-                                Suggested cost: € {deepAuditSuggestedCost.toFixed(2)}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => updateAuditType("Deep", "cost", deepAuditSuggestedCost)}
-                                className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-xs hover:bg-slate-800"
-                              >
-                                Use suggestion
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Estimated cost: € {computeAuditCost(type, auditHours[type], auditHourPrice[type]).toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -309,18 +296,6 @@ export function StrategyPanel({
               <div key={channel} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <div className="text-slate-700 font-medium mb-3">{channelLabels[channel]}</div>
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-slate-600 text-sm block mb-1">Effect</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      max={CHANNEL_EFFECT_MAX}
-                      value={config.channel_effects[channel]}
-                      onChange={(e) => updateChannel(channel, "effect", parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
-                    />
-                  </div>
                   <div>
                     <label className="text-slate-600 text-sm block mb-1">Cost (EUR)</label>
                     <input
@@ -371,10 +346,22 @@ export function StrategyPanel({
                             min="0"
                             max={AUDIT_RATE_MAX * 100}
                             step="0.01"
-                            value={(config.audit_rates[`${size}-${age}`] * 100).toFixed(2)}
+                            value={auditRateInputs[`${size}-${age}`] ?? (config.audit_rates[`${size}-${age}`] * 100).toFixed(2)}
                             onChange={(e) =>
-                              updateAuditRate(size, age, parseFloat(e.target.value) || 0)
+                              setAuditRateInputs((prev) => ({
+                                ...prev,
+                                [`${size}-${age}`]: e.target.value,
+                              }))
                             }
+                            onBlur={(e) => {
+                              const raw = parseFloat(e.target.value);
+                              const pct = Number.isNaN(raw) ? 0 : raw;
+                              updateAuditRate(size, age, pct);
+                              setAuditRateInputs((prev) => ({
+                                ...prev,
+                                [`${size}-${age}`]: (Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100)) * 100).toFixed(2),
+                              }));
+                            }}
                             className="w-24 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                           />
                           <span className="text-slate-500 text-sm">%</span>
@@ -395,6 +382,10 @@ export function StrategyPanel({
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
+          <p className="text-slate-500 text-sm mb-2">
+            Decaying factor d: reflects how strongly compliance decays in the absence of interaction
+            with the Tax Authority.
+          </p>
           <div className="max-w-sm">
             <input
               type="number"
