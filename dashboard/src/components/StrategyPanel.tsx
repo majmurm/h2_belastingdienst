@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Info, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Info, AlertCircle, RotateCcw, ChevronRight } from "lucide-react";
 import { Tooltip } from "./Tooltip";
-import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey, ChannelKey } from "../data/modelTypes";
+import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
+import styles from "./StrategyPanel.module.css";
 
 interface StrategyPanelProps {
   config: ModelConfig;
@@ -16,24 +17,11 @@ interface StrategyPanelProps {
 const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
 const ageOrder: AgeCategory[] = ["Young", "Mature", "Old"];
 const auditTypeOrder: AuditTypeKey[] = ["Light", "Standard", "Deep"];
-const channelOrder: ChannelKey[] = ["physical_letter", "email", "warning_letter"];
-
 const AUDIT_RATE_MAX = 0.05;
-const CHANNEL_EFFECT_MAX = 0.05;
 const AUDIT_COST_MAX = 5000;
-const DECAY_FACTOR_MAX = 0.001;
 
-const channelCostMax: Record<ChannelKey, number> = {
-  email: 0.1,
-  physical_letter: 5,
-  warning_letter: 50,
-};
-
-const channelLabels: Record<ChannelKey, string> = {
-  physical_letter: "Physical Letter",
-  email: "Email",
-  warning_letter: "Warning Letter",
-};
+type TimingUnit = "days" | "weeks" | "months";
+type ChannelTiming = { value: number; unit: TimingUnit };
 
 export function StrategyPanel({
   config,
@@ -54,6 +42,37 @@ export function StrategyPanel({
     Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20.11)),
     Deep: 78,
   });
+  const [channelEmail, setChannelEmail] = useState(true);
+  const [channelLetter, setChannelLetter] = useState(false);
+  const [channelSMS, setChannelSMS] = useState(false);
+  const [channelWarningLetter, setChannelWarningLetter] = useState(false);
+  const [channelFrequency, setChannelFrequency] = useState({
+    email: 2,
+    letter: 2,
+    sms: 2,
+  });
+  const [channelCost, setChannelCost] = useState({
+    email: config.intervention_costs.email,
+    letter: config.intervention_costs.physical_letter,
+    sms: 0,
+    warningLetter: config.intervention_costs.warning_letter,
+  });
+  const [channelTimings, setChannelTimings] = useState<{
+    email: ChannelTiming[];
+    letter: ChannelTiming[];
+    sms: ChannelTiming[];
+  }>({
+    email: [{ value: 2, unit: "weeks" }],
+    letter: [{ value: 3, unit: "weeks" }],
+    sms: [{ value: 5, unit: "days" }],
+  });
+  const [warningLetterTiming, setWarningLetterTiming] = useState<ChannelTiming>({
+    value: 1,
+    unit: "weeks",
+  });
+  const [warningVisitWeekInput, setWarningVisitWeekInput] = useState<string>(
+    config.warning_visit_week ? String(config.warning_visit_week) : "",
+  );
 
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
@@ -66,6 +85,19 @@ export function StrategyPanel({
     });
     setAuditRateInputs(formatted);
   }, [config.audit_rates]);
+
+  useEffect(() => {
+    setWarningVisitWeekInput(config.warning_visit_week ? String(config.warning_visit_week) : "");
+  }, [config.warning_visit_week]);
+
+  useEffect(() => {
+    setChannelCost((prev) => ({
+      ...prev,
+      email: config.intervention_costs.email,
+      letter: config.intervention_costs.physical_letter,
+      warningLetter: config.intervention_costs.warning_letter,
+    }));
+  }, [config.intervention_costs.email, config.intervention_costs.physical_letter, config.intervention_costs.warning_letter]);
 
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
@@ -107,28 +139,75 @@ export function StrategyPanel({
     });
   };
 
-  const updateChannel = (channel: ChannelKey, field: "effect" | "cost", value: number) => {
-    if (field === "effect") {
-      const effect = Math.max(0, Math.min(CHANNEL_EFFECT_MAX, value));
+  const updateReminderChannelCost = (channel: "email" | "letter" | "warningLetter", value: number) => {
+    const normalized = Math.max(0, value);
+    setChannelCost((prev) => ({ ...prev, [channel]: normalized }));
+    if (channel === "email") {
       updateConfig({
-        channel_effects: {
-          ...config.channel_effects,
-          [channel]: effect,
+        intervention_costs: {
+          ...config.intervention_costs,
+          email: normalized,
         },
       });
       return;
     }
-    const cost = Math.max(0, Math.min(channelCostMax[channel], value));
+    if (channel === "letter") {
+      updateConfig({
+        intervention_costs: {
+          ...config.intervention_costs,
+          physical_letter: normalized,
+        },
+      });
+      return;
+    }
     updateConfig({
       intervention_costs: {
         ...config.intervention_costs,
-        [channel]: cost,
+        warning_letter: normalized,
       },
     });
   };
 
   const computeAuditCost = (type: AuditTypeKey, hours: number, price: number) =>
     Math.max(0, Math.min(AUDIT_COST_MAX, hours * price));
+
+  const handleChannelFrequencyChange = (channel: "email" | "letter" | "sms", value: number) => {
+    const next = Math.max(1, Math.min(4, value));
+    setChannelFrequency((prev) => ({
+      ...prev,
+      [channel]: next,
+    }));
+    setChannelTimings((prev) => {
+      const list = [...prev[channel]];
+      if (list.length < next) {
+        const toAdd = Array.from({ length: next - list.length }, () => ({ value: 1, unit: "weeks" as TimingUnit }));
+        return { ...prev, [channel]: [...list, ...toAdd] };
+      }
+      if (list.length > next) {
+        return { ...prev, [channel]: list.slice(0, next) };
+      }
+      return prev;
+    });
+  };
+
+  const updateChannelTiming = (
+    channel: "email" | "letter" | "sms",
+    index: number,
+    field: "value" | "unit",
+    value: number | TimingUnit,
+  ) => {
+    setChannelTimings((prev) => {
+      const list = [...prev[channel]];
+      const entry = { ...list[index] };
+      if (field === "value") {
+        entry.value = typeof value === "number" ? value : entry.value;
+      } else {
+        entry.unit = value as TimingUnit;
+      }
+      list[index] = entry;
+      return { ...prev, [channel]: list };
+    });
+  };
 
   return (
     <div className="p-12 max-w-6xl">
@@ -159,64 +238,512 @@ export function StrategyPanel({
             </div>
             <input
               type="range"
-              min="104"
-              max="416"
+              min="156"
+              max="260"
               step="4"
               value={config.steps}
-              onChange={(e) => updateConfig({ steps: Math.max(104, parseInt(e.target.value) || 104) })}
+              onChange={(e) => updateConfig({ steps: Math.max(156, parseInt(e.target.value) || 156) })}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               style={{
-                background: `linear-gradient(to right, #1e293b 0%, #1e293b ${((config.steps - 104) / (416 - 104)) * 100}%, #e2e8f0 ${((config.steps - 104) / (416 - 104)) * 100}%, #e2e8f0 100%)`,
+                background: `linear-gradient(to right, #1e293b 0%, #1e293b ${((config.steps - 156) / (260 - 156)) * 100}%, #e2e8f0 ${((config.steps - 156) / (260 - 156)) * 100}%, #e2e8f0 100%)`,
               }}
             />
             <div className="flex justify-between text-xs text-slate-500">
-              <span>2 years</span>
+              <span>3 years</span>
+              <span>4 years</span>
               <span>5 years</span>
-              <span>8 years</span>
             </div>
+            {config.steps > 300 && (
+              <div
+                className="mt-4 flex items-center gap-2 text-red-700 border rounded-md"
+                style={{
+                  backgroundColor: "#fef2f2",
+                  borderColor: "#fecaca",
+                  padding: "12px 16px",
+                }}
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">
+                  Warning: simulations above 300 weeks may significantly increase runtime.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
-            <h3 className="text-slate-900 text-md font-medium">Tax Calendar</h3>
-            <Tooltip content="Controls when reminders, audits, and visits occur within each 52-week cycle.">
+            <h3 className="text-slate-900 text-md font-medium">Reminder Strategy</h3>
+            <Tooltip content="Automated reminders for tax filing deadlines.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
-          <div className="grid grid-cols-3 gap-6">
+
+          <div className="mb-6 bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <label className="block text-slate-600 mb-3">Select Reminder Channels</label>
+            <div className="grid grid-cols-4 gap-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={channelEmail}
+                  onChange={(e) => setChannelEmail(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-slate-700">Email</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={channelLetter}
+                  onChange={(e) => setChannelLetter(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-slate-700">Letter</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={channelSMS}
+                  onChange={(e) => setChannelSMS(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-slate-700">SMS</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={channelWarningLetter}
+                  onChange={(e) => setChannelWarningLetter(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-slate-700">Warning Letter</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {channelEmail && (
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center mb-4">
+                  <span className="text-slate-900 font-medium">Email Configuration</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Frequency</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={channelFrequency.email}
+                      onChange={(e) => handleChannelFrequencyChange("email", parseInt(e.target.value) || 1)}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
+                          ((channelFrequency.email - 1) / 3) * 100
+                        }%, #e2e8f0 ${((channelFrequency.email - 1) / 3) * 100}%, #e2e8f0 100%)`,
+                      }}
+                    />
+                    <div className="text-slate-600 text-sm mt-1">{channelFrequency.email} times</div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={channelCost.email}
+                      onChange={(e) =>
+                        updateReminderChannelCost("email", parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border border-slate-200">
+                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
+                  <div className="space-y-2">
+                    {channelTimings.email.map((timing, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={timing.value}
+                          onChange={(e) =>
+                            updateChannelTiming("email", index, "value", parseInt(e.target.value) || 1)
+                          }
+                          className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
+                        />
+                        <select
+                          value={timing.unit}
+                          onChange={(e) =>
+                            updateChannelTiming("email", index, "unit", e.target.value as TimingUnit)
+                          }
+                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
+                        >
+                          <option value="days">days</option>
+                          <option value="weeks">weeks</option>
+                          <option value="months">months</option>
+                        </select>
+                        <span className="text-slate-500 text-sm">before deadline</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {channelLetter && (
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center mb-4">
+                  <span className="text-slate-900 font-medium">Letter Configuration</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Frequency</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={channelFrequency.letter}
+                      onChange={(e) => handleChannelFrequencyChange("letter", parseInt(e.target.value) || 1)}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
+                          ((channelFrequency.letter - 1) / 3) * 100
+                        }%, #e2e8f0 ${((channelFrequency.letter - 1) / 3) * 100}%, #e2e8f0 100%)`,
+                      }}
+                    />
+                    <div className="text-slate-600 text-sm mt-1">{channelFrequency.letter} times</div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={channelCost.letter}
+                      onChange={(e) =>
+                        updateReminderChannelCost("letter", parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border border-slate-200">
+                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
+                  <div className="space-y-2">
+                    {channelTimings.letter.map((timing, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={timing.value}
+                          onChange={(e) =>
+                            updateChannelTiming("letter", index, "value", parseInt(e.target.value) || 1)
+                          }
+                          className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
+                        />
+                        <select
+                          value={timing.unit}
+                          onChange={(e) =>
+                            updateChannelTiming("letter", index, "unit", e.target.value as TimingUnit)
+                          }
+                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
+                        >
+                          <option value="days">days</option>
+                          <option value="weeks">weeks</option>
+                          <option value="months">months</option>
+                        </select>
+                        <span className="text-slate-500 text-sm">before deadline</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {channelSMS && (
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center mb-4">
+                  <span className="text-slate-900 font-medium">SMS Configuration</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Frequency</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={channelFrequency.sms}
+                      onChange={(e) => handleChannelFrequencyChange("sms", parseInt(e.target.value) || 1)}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
+                          ((channelFrequency.sms - 1) / 3) * 100
+                        }%, #e2e8f0 ${((channelFrequency.sms - 1) / 3) * 100}%, #e2e8f0 100%)`,
+                      }}
+                    />
+                    <div className="text-slate-600 text-sm mt-1">{channelFrequency.sms} times</div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={channelCost.sms}
+                      onChange={(e) => setChannelCost({ ...channelCost, sms: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border border-slate-200">
+                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
+                  <div className="space-y-2">
+                    {channelTimings.sms.map((timing, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={timing.value}
+                          onChange={(e) =>
+                            updateChannelTiming("sms", index, "value", parseInt(e.target.value) || 1)
+                          }
+                          className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
+                        />
+                        <select
+                          value={timing.unit}
+                          onChange={(e) =>
+                            updateChannelTiming("sms", index, "unit", e.target.value as TimingUnit)
+                          }
+                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
+                        >
+                          <option value="days">days</option>
+                          <option value="weeks">weeks</option>
+                          <option value="months">months</option>
+                        </select>
+                        <span className="text-slate-500 text-sm">before deadline</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {channelWarningLetter && (
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center mb-4">
+                  <span className="text-slate-900 font-medium">Warning Letter Configuration</span>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={channelCost.warningLetter}
+                    onChange={(e) =>
+                      updateReminderChannelCost("warningLetter", parseFloat(e.target.value) || 0)
+                    }
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
+                  />
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border border-slate-200">
+                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      value={warningLetterTiming.value}
+                      onChange={(e) =>
+                        setWarningLetterTiming({
+                          ...warningLetterTiming,
+                          value: parseInt(e.target.value) || 1,
+                        })
+                      }
+                      className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
+                    />
+                    <select
+                      value={warningLetterTiming.unit}
+                      onChange={(e) =>
+                        setWarningLetterTiming({
+                          ...warningLetterTiming,
+                          unit: e.target.value as TimingUnit,
+                        })
+                      }
+                      className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
+                    >
+                      <option value="days">days</option>
+                      <option value="weeks">weeks</option>
+                      <option value="months">months</option>
+                    </select>
+                    <span className="text-slate-500 text-sm">before deadline</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+        <div className="bg-white rounded-lg border border-slate-200 p-8">
+          <div className="flex items-center gap-2 mb-6">
+            <h3 className="text-slate-900 text-lg font-semibold">Tax Calendar</h3>
+            <Tooltip content="All tax calendar weeks are defined within a 52-week calendar year and repeat each year.">
+              <Info className="w-4 h-4 text-slate-400 cursor-help" />
+            </Tooltip>
+          </div>
+
+          <div className="grid grid-cols-3 gap-6 mb-12">
             <div>
-              <label className="text-slate-600 text-sm mb-2 block">Tax Deadline Week</label>
+              <label className="block text-slate-700 mb-2">Tax Deadline Week</label>
               <input
                 type="number"
                 min="1"
                 max="52"
                 value={config.tax_deadline_week}
-                onChange={(e) => updateConfig({ tax_deadline_week: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
+                onChange={(e) =>
+                  updateConfig({ tax_deadline_week: Math.max(1, Math.min(52, parseInt(e.target.value) || 1)) })
+                }
+                className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700"
+                style={{ borderRadius: "12px", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)" }}
               />
             </div>
+
             <div>
-              <label className="text-slate-600 text-sm mb-2 block">Audit Delay (weeks)</label>
-              <input
-                type="number"
-                min="0"
-                max="52"
-                value={config.audit_delay_weeks}
-                onChange={(e) => updateConfig({ audit_delay_weeks: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-              />
-            </div>
-            <div>
-              <label className="text-slate-600 text-sm mb-2 block">Warning Visit Week</label>
+              <label className="block text-slate-700 mb-2">Audit Delay (weeks)</label>
               <input
                 type="number"
                 min="1"
                 max="52"
-                value={config.warning_visit_week}
-                onChange={(e) => updateConfig({ warning_visit_week: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
+                value={config.audit_delay_weeks}
+                onChange={(e) =>
+                  updateConfig({ audit_delay_weeks: Math.max(1, Math.min(52, parseInt(e.target.value) || 1)) })
+                }
+                className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700"
+                style={{ borderRadius: "12px", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)" }}
               />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 mb-2">Warning Visit Week</label>
+              <input
+                type="number"
+                min="1"
+                max="52"
+                value={warningVisitWeekInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setWarningVisitWeekInput(next);
+                  if (next === "") {
+                    return;
+                  }
+                  updateConfig({
+                    warning_visit_week: Math.max(1, Math.min(52, parseInt(next) || 1)),
+                  });
+                }}
+                placeholder="Optional"
+                className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 placeholder:text-slate-400"
+                style={{ borderRadius: "12px", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)" }}
+              />
+            </div>
+          </div>
+
+          <div className={styles.taxCalendarTimeline}>
+            <div className="mb-4">
+              <h4 className="text-slate-700 font-medium mb-2">Annual Timeline</h4>
+              <p className="text-slate-500 text-sm">Visual representation of tax events across 52 weeks</p>
+            </div>
+
+            <div className="relative">
+              <div className={styles.weekMarkers}>
+                <span>Week 1</span>
+                <span>Week 13</span>
+                <span>Week 26</span>
+                <span>Week 39</span>
+                <span>Week 52</span>
+              </div>
+
+              <div className={styles.timelineBar}>
+                <div
+                  className={styles.markerLine}
+                  style={{
+                    left: `${((config.tax_deadline_week - 1) / 51) * 100}%`,
+                    background: "#2563eb",
+                  }}
+                >
+                  <div className={styles.markerLabelWrap}>
+                    <div className={styles.markerLabel} style={{ background: "#2563eb" }}>
+                      Deadline (W{config.tax_deadline_week})
+                    </div>
+                  </div>
+                </div>
+
+                {config.tax_deadline_week + config.audit_delay_weeks <= 52 && (
+                  <div
+                    className={styles.markerLine}
+                    style={{
+                      left: `${((config.tax_deadline_week + config.audit_delay_weeks - 1) / 51) * 100}%`,
+                      background: "#f97316",
+                    }}
+                  >
+                    <div className={styles.markerLabelWrap}>
+                      <div className={styles.markerLabel} style={{ background: "#f97316" }}>
+                        Audit (W{config.tax_deadline_week + config.audit_delay_weeks})
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {warningVisitWeekInput !== "" &&
+                  !Number.isNaN(parseInt(warningVisitWeekInput)) &&
+                  parseInt(warningVisitWeekInput) >= 1 &&
+                  parseInt(warningVisitWeekInput) <= 52 && (
+                    <div
+                      className={styles.markerLine}
+                      style={{
+                        left: `${((parseInt(warningVisitWeekInput) - 1) / 51) * 100}%`,
+                        background: "#dc2626",
+                      }}
+                    >
+                      <div className={styles.markerLabelWrap}>
+                        <div className={styles.markerLabel} style={{ background: "#dc2626" }}>
+                          Warning (W{parseInt(warningVisitWeekInput)})
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              <div className={styles.legend}>
+                <div className={styles.legendItem}>
+                  <div className={styles.legendSwatch} style={{ background: "#2563eb" }} />
+                  <span>Tax Deadline</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <div className={styles.legendSwatch} style={{ background: "#f97316" }} />
+                  <span>Audit Week</span>
+                </div>
+                <div className={styles.legendItem}>
+                  <div className={styles.legendSwatch} style={{ background: "#dc2626" }} />
+                  <span>Warning Visit</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -237,9 +764,11 @@ export function StrategyPanel({
                   <button
                     type="button"
                     onClick={() => resetAuditType(type)}
-                    className="text-xs text-slate-600 hover:text-slate-900"
+                    className="text-slate-500 hover:text-slate-900"
+                    aria-label="Reset to default"
+                    title="Reset to default"
                   >
-                    Reset to default
+                    <RotateCcw className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -272,39 +801,6 @@ export function StrategyPanel({
                         const cost = computeAuditCost(type, auditHours[type], next);
                         updateAuditType(type, "cost", cost);
                       }}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
-                    />
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Estimated cost: € {computeAuditCost(type, auditHours[type], auditHourPrice[type]).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-8">
-          <div className="flex items-center gap-2 mb-6">
-            <h3 className="text-slate-900 text-md font-medium">Communication Channels</h3>
-            <Tooltip content="Define effect and cost for each channel used in the tax calendar.">
-              <Info className="w-4 h-4 text-slate-400 cursor-help" />
-            </Tooltip>
-          </div>
-          <div className="grid grid-cols-3 gap-6">
-            {channelOrder.map((channel) => (
-              <div key={channel} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="text-slate-700 font-medium mb-3">{channelLabels[channel]}</div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-slate-600 text-sm block mb-1">Cost (EUR)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={channelCostMax[channel]}
-                      value={config.intervention_costs[channel]}
-                      onChange={(e) => updateChannel(channel, "cost", parseFloat(e.target.value) || 0)}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
                   </div>
@@ -375,41 +871,6 @@ export function StrategyPanel({
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-8">
-          <div className="flex items-center gap-2 mb-6">
-            <h3 className="text-slate-900 text-md font-medium">Compliance Decay</h3>
-            <Tooltip content="Weekly decay in compliance propensity absent interventions.">
-              <Info className="w-4 h-4 text-slate-400 cursor-help" />
-            </Tooltip>
-          </div>
-          <p className="text-slate-500 text-sm mb-2">
-            Decaying factor d: reflects how strongly compliance decays in the absence of interaction
-            with the Tax Authority.
-          </p>
-          <div className="max-w-sm">
-            <input
-              type="number"
-              step="0.00001"
-              min="0"
-              max={DECAY_FACTOR_MAX}
-              value={config.decay_factor}
-              onChange={(e) => {
-                const next = parseFloat(e.target.value);
-                if (Number.isNaN(next)) return;
-                updateConfig({ decay_factor: next });
-              }}
-              onBlur={(e) =>
-                updateConfig({
-                  decay_factor: Math.max(
-                    0,
-                    Math.min(DECAY_FACTOR_MAX, parseFloat(e.target.value) || 0),
-                  ),
-                })
-              }
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-slate-700"
-            />
-          </div>
-        </div>
       </div>
 
       <div className="mt-8 flex justify-end">

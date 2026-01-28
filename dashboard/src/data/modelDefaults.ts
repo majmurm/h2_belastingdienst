@@ -27,14 +27,14 @@ const computeSizeSharesFromSectors = (selected: SectorKey[]) => {
 
 export const defaultModelConfig: ModelConfig = {
   N: 1000,
-  size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors as SectorKey[]),
+  size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors_individual as SectorKey[]),
   age_shares: {
     Young: 0.57,
     Mature: 0.04,
     Old: 0.39,
   },
   sector_shares: sectorDefaults.sector_shares,
-  selected_sectors: sectorDefaults.sectors,
+  selected_sectors: sectorDefaults.sectors_individual,
   C_target: 0.693,
   m_size: 0.05,
   m_age: 0.05,
@@ -53,7 +53,7 @@ export const defaultModelConfig: ModelConfig = {
   audit_types: {
     Light: { effect: 0.45, cost: 500.0 },
     Standard: { effect: 0.9, cost: 775.0 },
-    Deep: { effect: 1.8, cost: 1550.0 },
+    Deep: { effect: 1.8, cost: 1570.0 },
   },
   channel_effects: {
     physical_letter: 0.003,
@@ -65,8 +65,13 @@ export const defaultModelConfig: ModelConfig = {
     physical_letter: 0.85,
     warning_letter: 20.96,
   },
-  decay_factor: 0.00005,
+  tax_gap_target_rate: 0.05,
+  noncompliance_target_rate: 0.3,
+  calibrate_baseline: true,
+  underpayment_mean_if_noncompliant: null,
+  decay_factor: 0.0005,
   seed: 42,
+  n_neighbours: 4,
   steps: 260,
   tax_deadline_week: 12,
   audit_delay_weeks: 8,

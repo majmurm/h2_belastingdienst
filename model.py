@@ -75,6 +75,7 @@ class SMEComplianceModel(Model):
         decay_factor: float = 0.0,
         seed: int = 42,
         n_neighbours: int = 4,
+        warning_visit_week: int = 35,
     ):
         """
         Parameters:
@@ -140,6 +141,7 @@ class SMEComplianceModel(Model):
         # TAX CALENDAR (Weeks)
         self.tax_deadline_week = 12
         self.audit_delay_weeks = 8
+        self.warning_visit_week = int(warning_visit_week)
 
         # Population setup
         self.size_order = list(size_shares.keys())
@@ -485,8 +487,8 @@ class SMEComplianceModel(Model):
         # Company Visit Window:
         # Audit (Week 20) + 8 weeks = Week 28. 8 week delay is arbitrarily chosen to reflect a time period after the auditing period
         # First Reminder (Week 8 next year) - 4 weeks = Week 4 (or 56). 4 weeks before the first reminder is also chosen arbitrarily
-        # We arbitrarily pick Week 35 as the "Company Visit Campaign" week, since it is within the outlined time interval
-        week_visit_campaign = 35
+        # Company Visit Campaign week (configurable)
+        week_visit_campaign = self.warning_visit_week
 
         # Reset weekly flags
         self.is_high_urgency_week = False
@@ -540,4 +542,3 @@ class SMEComplianceModel(Model):
         self.agents.shuffle_do("step")
         self.datacollector.collect(self)
         self.step_count += 1
-

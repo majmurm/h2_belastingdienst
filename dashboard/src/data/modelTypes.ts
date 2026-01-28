@@ -6,12 +6,18 @@ export type ChannelKey = "physical_letter" | "email" | "warning_letter";
 export type AuditTypeKey = "Light" | "Standard" | "Deep";
 export type SectorKey =
   | "Business Economy, B-N, excl. K, incl. 95"
-  | "B-E Nijverheid (geen bouw) en energie"
+  | "B Delfstoffenwinning"
+  | "C Industrie"
+  | "D Energievoorziening"
+  | "E Waterbedrijven en afvalbeheer"
   | "F Bouwnijverheid"
-  | "G-I Handel, vervoer en horeca"
+  | "G Handel"
+  | "H Vervoer en opslag"
+  | "I Horeca"
   | "J Informatie en communicatie"
   | "L Verhuur en handel van onroerend goed"
-  | "M-N Zakelijke dienstverlening";
+  | "M Specialistische zakelijke diensten"
+  | "N Verhuur en overige zakelijke diensten";
 
 export interface ModelConfig {
   N: number;
@@ -27,8 +33,13 @@ export interface ModelConfig {
   audit_types: Record<AuditTypeKey, { effect: number; cost: number }>;
   channel_effects: Record<ChannelKey, number>;
   intervention_costs: Record<ChannelKey, number>;
+  tax_gap_target_rate: number;
+  noncompliance_target_rate: number;
+  calibrate_baseline: boolean;
+  underpayment_mean_if_noncompliant: number | null;
   decay_factor: number;
   seed: number;
+  n_neighbours: number;
   steps: number;
   tax_deadline_week: number;
   audit_delay_weeks: number;
