@@ -111,14 +111,14 @@ def generate_network_gif(model: SMEComplianceModel, snapshots: list) -> str | No
 
         G = model.grid.G
         # Calculate layout once
-        pos = nx.spring_layout(G, k=0.15, iterations=30, seed=42)
+        pos = nx.spring_layout(G, k=0.08, iterations=30, seed=42)
 
         frames = []
 
         # 2. Generate each frame in memory
         for data in snapshots:
             # Create a fresh figure for each frame
-            fig = plt.figure(figsize=(20, 12), dpi=80)
+            fig = plt.figure(figsize=(18, 12), dpi=80)
             ax = fig.add_subplot(111)
 
             # Map values to RGBA colors using the fixed norm

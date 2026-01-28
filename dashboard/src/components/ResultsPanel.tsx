@@ -445,7 +445,7 @@ export function ResultsPanel({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-slate-900 text-md font-medium mb-2">
-                    SME Tax Compliance: 5-Year Simulation
+                    SME Tax Compliance: {selectedConfig.steps}-week Simulation
                   </h3>
                   <p className="text-slate-600">
                     Strategy: Pulsed Audits + Behavioral Nudges
@@ -555,23 +555,13 @@ export function ResultsPanel({
             </div>
           </div>
 
-          <div className="mb-8">
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-slate-900 text-md font-medium mb-4">
-                Audit Coverage (Current Step)
-              </h3>
-              <div className="text-slate-600">
-                Audits are concentrated during the annual campaign week. The overall audited share for this step is{" "}
-                <span className="text-slate-900 font-medium">{currentStep?.overall_audited_pct.toFixed(2)}%</span>.
-              </div>
-            </div>
-          </div>
+
           {/* NETWORK ANIMATION VISUALIZATION */}
           {(results.final as any).network_gif && (
             <div className="mb-8 print-break-inside-avoid">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-900 text-md font-medium mb-4">
-                  Network Compliance Evolution (Animation)
+                  Network Compliance Evolution
                 </h3>
                 <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg p-4">
                   {/* DISPLAY GIF HERE */}
@@ -584,18 +574,18 @@ export function ResultsPanel({
                   <div className="flex items-center gap-4 mt-4">
                     <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-purple-700"></span>
-                        <span className="text-xs text-slate-500">Low Compliance</span>
+
                     </div>
                     <div className="h-0.5 w-12 bg-gradient-to-r from-purple-700 via-teal-500 to-yellow-400"></div>
                     <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
-                        <span className="text-xs text-slate-500">High Compliance</span>
+
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500 mt-2 text-center max-w-2xl">
-                    Evolution of tax compliance over {config.steps} weeks. <br/>
-                    Notice how audits (shockwaves) and behavioral nudges ripple through the network.
-                  </p>
+                    <p className="text-sm text-slate-600 mt-3 text-center max-w-2xl italic leading-relaxed">
+                    Evolution of compliance within the SME network over the {selectedConfig.steps}-week simulation period. 
+                    Nodes represent individual agents (N={selectedConfig.N.toLocaleString()}), colored by compliance level. 
+                   </p>
                 </div>
               </div>
             </div>
