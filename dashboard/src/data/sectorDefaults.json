@@ -1,42 +1,88 @@
 {
   "sectors": [
     "Business Economy, B-N, excl. K, incl. 95",
-    "B-E Nijverheid (geen bouw) en energie",
+    "B Delfstoffenwinning",
+    "C Industrie",
+    "D Energievoorziening",
+    "E Waterbedrijven en afvalbeheer",
     "F Bouwnijverheid",
-    "G-I Handel, vervoer en horeca",
+    "G Handel",
+    "H Vervoer en opslag",
+    "I Horeca",
     "J Informatie en communicatie",
     "L Verhuur en handel van onroerend goed",
-    "M-N Zakelijke dienstverlening"
+    "M Specialistische zakelijke diensten",
+    "N Verhuur en overige zakelijke diensten"
+  ],
+  "sectors_individual": [
+    "B Delfstoffenwinning",
+    "C Industrie",
+    "D Energievoorziening",
+    "E Waterbedrijven en afvalbeheer",
+    "F Bouwnijverheid",
+    "G Handel",
+    "H Vervoer en opslag",
+    "I Horeca",
+    "J Informatie en communicatie",
+    "L Verhuur en handel van onroerend goed",
+    "M Specialistische zakelijke diensten",
+    "N Verhuur en overige zakelijke diensten"
   ],
   "sector_shares": {
-    "Business Economy, B-N, excl. K, incl. 95": 0.501498,
-    "B-E Nijverheid (geen bouw) en energie": 0.028041,
-    "F Bouwnijverheid": 0.083331,
-    "G-I Handel, vervoer en horeca": 0.137223,
-    "J Informatie en communicatie": 0.040877,
-    "L Verhuur en handel van onroerend goed": 0.012121,
-    "M-N Zakelijke dienstverlening": 0.196909
+    "B Delfstoffenwinning": 0.000398,
+    "C Industrie": 0.053264,
+    "D Energievoorziening": 0.00135,
+    "E Waterbedrijven en afvalbeheer": 0.001245,
+    "F Bouwnijverheid": 0.167162,
+    "G Handel": 0.182415,
+    "H Vervoer en opslag": 0.042477,
+    "I Horeca": 0.05038,
+    "J Informatie en communicatie": 0.081998,
+    "L Verhuur en handel van onroerend goed": 0.024314,
+    "M Specialistische zakelijke diensten": 0.312267,
+    "N Verhuur en overige zakelijke diensten": 0.08273,
+    "Business Economy, B-N, excl. K, incl. 95": 1.0
   },
   "size_shares_by_sector": {
-    "Business Economy, B-N, excl. K, incl. 95": {
-      "Micro": 0.966323,
-      "Small": 0.027829,
-      "Medium": 0.005848
+    "B Delfstoffenwinning": {
+      "Micro": 0.883721,
+      "Small": 0.062016,
+      "Medium": 0.054264
     },
-    "B-E Nijverheid (geen bouw) en energie": {
-      "Micro": 0.909026,
-      "Small": 0.067146,
-      "Medium": 0.023828
+    "C Industrie": {
+      "Micro": 0.909086,
+      "Small": 0.06749,
+      "Medium": 0.023424
+    },
+    "D Energievoorziening": {
+      "Micro": 0.949657,
+      "Small": 0.034325,
+      "Medium": 0.016018
+    },
+    "E Waterbedrijven en afvalbeheer": {
+      "Micro": 0.868486,
+      "Small": 0.091811,
+      "Medium": 0.039702
     },
     "F Bouwnijverheid": {
       "Micro": 0.980158,
       "Small": 0.016979,
       "Medium": 0.002864
     },
-    "G-I Handel, vervoer en horeca": {
-      "Micro": 0.945205,
-      "Small": 0.047076,
-      "Medium": 0.007719
+    "G Handel": {
+      "Micro": 0.952325,
+      "Small": 0.040074,
+      "Medium": 0.007602
+    },
+    "H Vervoer en opslag": {
+      "Micro": 0.950923,
+      "Small": 0.038607,
+      "Medium": 0.01047
+    },
+    "I Horeca": {
+      "Micro": 0.914547,
+      "Small": 0.079568,
+      "Medium": 0.005885
     },
     "J Informatie en communicatie": {
       "Micro": 0.971263,
@@ -48,10 +94,20 @@
       "Small": 0.012702,
       "Medium": 0.004573
     },
-    "M-N Zakelijke dienstverlening": {
-      "Micro": 0.98093,
-      "Small": 0.015582,
-      "Medium": 0.003487
+    "M Specialistische zakelijke diensten": {
+      "Micro": 0.986114,
+      "Small": 0.011947,
+      "Medium": 0.001938
+    },
+    "N Verhuur en overige zakelijke diensten": {
+      "Micro": 0.961326,
+      "Small": 0.029341,
+      "Medium": 0.009333
+    },
+    "Business Economy, B-N, excl. K, incl. 95": {
+      "Micro": 0.966164,
+      "Small": 0.027956,
+      "Medium": 0.00588
     }
   }
 }

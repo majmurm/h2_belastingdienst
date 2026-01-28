@@ -37,6 +37,16 @@ from model import SMEComplianceModel  # noqa: E402
 
 
 GroupTuple = Tuple[str, str]
+SectorKey = str
+
+
+SECTOR_DEFAULTS_PATH = REPO_ROOT / "dashboard" / "src" / "data" / "sectorDefaults.json"
+_sector_defaults = json.loads(SECTOR_DEFAULTS_PATH.read_text(encoding="utf-8"))
+SECTOR_LIST: list[SectorKey] = _sector_defaults["sectors_individual"]
+SECTOR_SHARES_DEFAULT: Dict[SectorKey, float] = _sector_defaults["sector_shares"]
+SIZE_SHARES_BY_SECTOR: Dict[SectorKey, Dict[str, float]] = _sector_defaults[
+    "size_shares_by_sector"
+]
 
 
 def _normalize_audit_rates(audit_rates: Mapping[Any, Any]) -> Dict[GroupTuple, float]:
@@ -154,9 +164,14 @@ def compute_tax_gap(model: SMEComplianceModel) -> Dict[str, Any]:
         lambda: {"potential": 0.0, "actual": 0.0}
     )
 
+    def expected_unpaid(agent) -> float:
+        if hasattr(model, "expected_unpaid_tax"):
+            return float(model.expected_unpaid_tax(agent))
+        return float(agent.turnover) * float(agent.tax_rate) * (1.0 - float(agent.propensity))
+
     for agent in model.agents:
         potential = float(agent.turnover) * float(agent.tax_rate)
-        actual = potential * float(agent.propensity)
+        actual = potential - expected_unpaid(agent)
 
         total_potential += potential
         total_actual += actual
@@ -263,7 +278,7 @@ def default_config() -> Dict[str, Any]:
         "audit_types": {
             "Light": {"effect": 0.45, "cost": 500.0},
             "Standard": {"effect": 0.90, "cost": 775.0},
-            "Deep": {"effect": 1.80, "cost": 1550.0},
+            "Deep": {"effect": 1.80, "cost": 1570.0},
         },
         "channel_effects": {
             "physical_letter": 0.003,
@@ -275,8 +290,13 @@ def default_config() -> Dict[str, Any]:
             "physical_letter": 0.85,
             "warning_letter": 20.96,
         },
-        "decay_factor": 0.00005,
+        "tax_gap_target_rate": 0.05,
+        "noncompliance_target_rate": 0.30,
+        "calibrate_baseline": True,
+        "underpayment_mean_if_noncompliant": None,
+        "decay_factor": 0.0005,
         "seed": 42,
+        "n_neighbours": 4,
         "steps": 260,
         "tax_deadline_week": 12,
         "audit_delay_weeks": 8,
@@ -299,8 +319,13 @@ def run_simulation(config: Mapping[str, Any]) -> Dict[str, Any]:
         audit_types=dict(config["audit_types"]),
         channel_effects=dict(config["channel_effects"]),
         intervention_costs=dict(config["intervention_costs"]),
+        tax_gap_target_rate=float(config.get("tax_gap_target_rate", 0.05)),
+        noncompliance_target_rate=float(config.get("noncompliance_target_rate", 0.30)),
+        calibrate_baseline=bool(config.get("calibrate_baseline", True)),
+        underpayment_mean_if_noncompliant=config.get("underpayment_mean_if_noncompliant", None),
         decay_factor=float(config["decay_factor"]),
         seed=int(config["seed"]),
+        n_neighbours=int(config.get("n_neighbours", 4)),
     )
 
     model.tax_deadline_week = int(config["tax_deadline_week"])
