@@ -7,7 +7,8 @@ the consistency of the model output produced.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from model import SMEAgent, SMEComplianceModel, report_tax_gap
+from model import SMEAgent, SMEComplianceModel
+from report_results import report_tax_gap
 from collections import Counter, defaultdict
 import pandas as pd
 from tqdm import tqdm
@@ -20,17 +21,30 @@ age_shares_default = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target_default = 0.693
 
-# Audit Rates (Base Weekly Rates)
+# # Audit Rates (Base Weekly Rates)
+# audit_rates_default = {
+#     ("Micro", "Young"): 0.0046,
+#     ("Micro", "Mature"): 0.0046,
+#     ("Micro", "Old"): 0.0046,
+#     ("Small", "Young"): 0.0046,
+#     ("Small", "Mature"): 0.0046,
+#     ("Small", "Old"): 0.0046,
+#     ("Medium", "Young"): 0.0046,
+#     ("Medium", "Mature"): 0.0046,
+#     ("Medium", "Old"): 0.0046,
+# }
+
+
 audit_rates_default = {
-    ("Micro", "Young"): 0.0046,
-    ("Micro", "Mature"): 0.0046,
-    ("Micro", "Old"): 0.0046,
-    ("Small", "Young"): 0.0046,
-    ("Small", "Mature"): 0.0046,
-    ("Small", "Old"): 0.0046,
-    ("Medium", "Young"): 0.0046,
-    ("Medium", "Mature"): 0.0046,
-    ("Medium", "Old"): 0.0046,
+    ("Micro", "Young"): 0.02,
+    ("Micro", "Mature"): 0.02,
+    ("Micro", "Old"): 0.02,
+    ("Small", "Young"): 0.02,
+    ("Small", "Mature"): 0.02,
+    ("Small", "Old"): 0.02,
+    ("Medium", "Young"): 0.02,
+    ("Medium", "Mature"): 0.02,
+    ("Medium", "Old"): 0.02,
 }
 
 # Distinct effects for different channels
@@ -47,7 +61,7 @@ audit_types_default = {
     "Standard": {"effect": 0.90, "cost": 775.0},  # corporate income tax return check
     "Deep": {
         "effect": 1.80,
-        "cost": 1550.0,
+        "cost": 1570.0,
     },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
 }
 
