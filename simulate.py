@@ -121,38 +121,24 @@ def run_simulation(
 
     return output
 
+def run_multiple(n_simulations, population_size, timesteps, filename="simulations.csv"):
 
-def run_multiple(
-    n_simulations, population_size=100, timesteps=260, filename="simulations.csv"
-):
-    outputs = {
-        "seed": [],
-        "size": [],
-        "age": [],
-        "tax_advisor": [],
-        "start": [],
-        "final": [],
-        "change": [],
-    }
-
-    # Empty a simulation file with the same name if it exists
-    try:
-        os.remove(filename)
-    except OSError:
-        pass
+    # Empty the file or create it and write the header line to it
+    with open(filename, "w") as data_file:
+        data_file.write("seed,size,age,tax_advisor,start,final,change\n")
 
     # Run simulations with a progress bar
     for seed in tqdm(range(n_simulations)):
 
         output = run_simulation(population_size, seed, timesteps)
 
-        # Store simulation results in dict
-        for column, values in outputs.items():
-            values += output[column]
+        result = pd.DataFrame.from_dict(output)
 
-        result = pd.DataFrame.from_dict(outputs)
+        result.to_csv(filename, header=False, index=False, mode="a")
 
-        result.to_csv(filename, index=False, mode="a")
+
+if __name__ == "__main__":
+    run_multiple(n_simulations=5, population_size=10000, timesteps=260)
 
 
 if __name__ == "__main__":
