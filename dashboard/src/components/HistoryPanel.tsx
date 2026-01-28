@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Eye, Info, GitCompare, Edit3, Check, X } from 'lucide-react';
+import { Download, Eye, Info, GitCompare, Edit3, Check, X, Trash2 } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 import type { RunRecord } from '../data/runHistory';
 
@@ -9,6 +9,7 @@ interface HistoryPanelProps {
   onViewRun?: (runId: string) => void;
   onDownloadRun?: (runId: string) => void;
   onRenameRun?: (runId: string, displayName: string) => void;
+  onDeleteRun?: (runId: string) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -16,7 +17,7 @@ const formatCurrency = (value: number) =>
     value,
   );
 
-export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun, onRenameRun }: HistoryPanelProps) {
+export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun, onRenameRun, onDeleteRun }: HistoryPanelProps) {
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'details'>('table');
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
@@ -107,6 +108,18 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun, on
               className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 transition-colors"
             >
               Back to List
+            </button>
+          )}
+          {viewMode === 'table' && runs.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm("Clear all run history? This cannot be undone.")) {
+                  onRenameRun?.("__clear__" as any, "" as any);
+                }
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Clear History
             </button>
           )}
           {viewMode === 'table' && selectedForComparison.length === 2 && (
@@ -237,6 +250,17 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun, on
                           <Eye className="w-4 h-4" />
                         </button>
                         )}
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Delete this run? This cannot be undone.")) {
+                              onDeleteRun?.(run.id);
+                            }
+                          }}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete Run"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => onDownloadRun?.(run.id)}
                           className="p-2 text-[#0C3358] hover:bg-blue-50 rounded transition-colors"

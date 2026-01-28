@@ -39,6 +39,9 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
     }
   };
 
+  const formatMaybeNumber = (value?: number, digits = 3) =>
+    typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "-";
+
   useEffect(() => {
     if (!strategyAId && fallbackIds[0]) {
       setStrategyAId(fallbackIds[0]);
@@ -172,14 +175,42 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 </div>
               </div>
 
+              <div className="text-slate-700 font-medium">Audit Rates by Group</div>
+              {strategyA.config.audit_rates && Object.keys(strategyA.config.audit_rates).length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  {Object.entries(strategyA.config.audit_rates).map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-2 bg-slate-50 rounded px-2 py-1">
+                      <span>{key}</span>
+                      <span className="text-slate-900">{(value * 100).toFixed(2)}%</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
+              <div className="text-slate-700 font-medium">Audit Effects</div>
+              {strategyA.config.audit_types ? (
+                <div className="space-y-2">
+                  {Object.entries(strategyA.config.audit_types).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span>{key}:</span>
+                      <span className="text-slate-900">{formatMaybeNumber(value.effect, 2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
               <div className="text-slate-700 font-medium">Audit Hours & FTE Price</div>
               <div className="space-y-2">
                 {Object.entries(strategyA.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
                     <span>{key}:</span>
                     <span className="text-slate-900">
-                      {strategyA.config.audit_hours?.[key as keyof typeof strategyA.config.audit_hours] ?? "—"}h · €
-                      {strategyA.config.audit_hour_price?.[key as keyof typeof strategyA.config.audit_hour_price] ?? "—"}
+                      {strategyA.config.audit_hours?.[key as keyof typeof strategyA.config.audit_hours] ?? "-"}h · €
+                      {strategyA.config.audit_hour_price?.[key as keyof typeof strategyA.config.audit_hour_price] ?? "-"}
                     </span>
                   </div>
                 ))}
@@ -188,7 +219,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               <div className="text-slate-700 font-medium">Reminders (Weeks Before Deadline)</div>
               <div className="space-y-2">
                 {Object.entries(strategyA.config.communication_schedule ?? {}).length === 0 ? (
-                  <div className="text-slate-500">No reminders configured.</div>
+                  <div className="text-slate-500">-</div>
                 ) : (
                   Object.entries(strategyA.config.communication_schedule ?? {})
                     .sort(([a], [b]) => Number(b) - Number(a))
@@ -204,14 +235,60 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               </div>
 
               <div className="text-slate-700 font-medium">Communication Cost per Unit</div>
-              <div className="space-y-2">
-                {Object.entries(strategyA.config.intervention_costs).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span>{reminderLabel(key)}:</span>
-                    <span className="text-slate-900">€{value.toFixed(2)}</span>
+              {strategyA.config.intervention_costs ? (
+                <div className="space-y-2">
+                  {Object.entries(strategyA.config.intervention_costs).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span>{reminderLabel(key)}:</span>
+                      <span className="text-slate-900">€{value.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
+              <details className="pt-2">
+                <summary className="cursor-pointer text-slate-700 font-medium">
+                  Advanced Parameters
+                </summary>
+                <div className="mt-3 space-y-2 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>C target:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyA.config.C_target, 3)}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex justify-between">
+                    <span>Kappa:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyA.config.kappa === "number" ? strategyA.config.kappa : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>m_size:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyA.config.m_size, 3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>m_age:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyA.config.m_age, 3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Decay factor:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyA.config.decay_factor, 5)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Seed:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyA.config.seed === "number" ? strategyA.config.seed : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Neighbours:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyA.config.n_neighbours === "number" ? strategyA.config.n_neighbours : "-"}
+                    </span>
+                  </div>
+                </div>
+              </details>
             </div>
           )}
         </div>
@@ -272,14 +349,42 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 </div>
               </div>
 
+              <div className="text-slate-700 font-medium">Audit Rates by Group</div>
+              {strategyB.config.audit_rates && Object.keys(strategyB.config.audit_rates).length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  {Object.entries(strategyB.config.audit_rates).map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-2 bg-slate-50 rounded px-2 py-1">
+                      <span>{key}</span>
+                      <span className="text-slate-900">{(value * 100).toFixed(2)}%</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
+              <div className="text-slate-700 font-medium">Audit Effects</div>
+              {strategyB.config.audit_types ? (
+                <div className="space-y-2">
+                  {Object.entries(strategyB.config.audit_types).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span>{key}:</span>
+                      <span className="text-slate-900">{formatMaybeNumber(value.effect, 2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
               <div className="text-slate-700 font-medium">Audit Hours & FTE Price</div>
               <div className="space-y-2">
                 {Object.entries(strategyB.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
                     <span>{key}:</span>
                     <span className="text-slate-900">
-                      {strategyB.config.audit_hours?.[key as keyof typeof strategyB.config.audit_hours] ?? "—"}h · €
-                      {strategyB.config.audit_hour_price?.[key as keyof typeof strategyB.config.audit_hour_price] ?? "—"}
+                      {strategyB.config.audit_hours?.[key as keyof typeof strategyB.config.audit_hours] ?? "-"}h · €
+                      {strategyB.config.audit_hour_price?.[key as keyof typeof strategyB.config.audit_hour_price] ?? "-"}
                     </span>
                   </div>
                 ))}
@@ -288,7 +393,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               <div className="text-slate-700 font-medium">Reminders (Weeks Before Deadline)</div>
               <div className="space-y-2">
                 {Object.entries(strategyB.config.communication_schedule ?? {}).length === 0 ? (
-                  <div className="text-slate-500">No reminders configured.</div>
+                  <div className="text-slate-500">-</div>
                 ) : (
                   Object.entries(strategyB.config.communication_schedule ?? {})
                     .sort(([a], [b]) => Number(b) - Number(a))
@@ -304,14 +409,60 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               </div>
 
               <div className="text-slate-700 font-medium">Communication Cost per Unit</div>
-              <div className="space-y-2">
-                {Object.entries(strategyB.config.intervention_costs).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span>{reminderLabel(key)}:</span>
-                    <span className="text-slate-900">€{value.toFixed(2)}</span>
+              {strategyB.config.intervention_costs ? (
+                <div className="space-y-2">
+                  {Object.entries(strategyB.config.intervention_costs).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span>{reminderLabel(key)}:</span>
+                      <span className="text-slate-900">€{value.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500">-</div>
+              )}
+
+              <details className="pt-2">
+                <summary className="cursor-pointer text-slate-700 font-medium">
+                  Advanced Parameters
+                </summary>
+                <div className="mt-3 space-y-2 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>C target:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyB.config.C_target, 3)}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex justify-between">
+                    <span>Kappa:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyB.config.kappa === "number" ? strategyB.config.kappa : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>m_size:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyB.config.m_size, 3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>m_age:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyB.config.m_age, 3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Decay factor:</span>
+                    <span className="text-slate-900">{formatMaybeNumber(strategyB.config.decay_factor, 5)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Seed:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyB.config.seed === "number" ? strategyB.config.seed : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Neighbours:</span>
+                    <span className="text-slate-900">
+                      {typeof strategyB.config.n_neighbours === "number" ? strategyB.config.n_neighbours : "-"}
+                    </span>
+                  </div>
+                </div>
+              </details>
             </div>
           )}
         </div>

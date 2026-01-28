@@ -62,6 +62,7 @@ export function ResultsPanel({
   const selectedConfig = results?.config ?? config;
   const auditHours = selectedConfig.audit_hours ?? defaultModelConfig.audit_hours;
   const auditHourPrice = selectedConfig.audit_hour_price ?? defaultModelConfig.audit_hour_price;
+  const selectedSectors = selectedConfig.selected_sectors ?? defaultModelConfig.selected_sectors;
 
   const handleExportPdf = () => {
     const target = resultsRef.current;
@@ -326,7 +327,7 @@ export function ResultsPanel({
                 Sector Coverage & Compliance
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                {selectedConfig.selected_sectors.map((sector) => (
+                {selectedSectors.map((sector) => (
                   <div key={sector} className="flex justify-between gap-4">
                     <span className="text-slate-600">{sector}</span>
                     <span className="text-slate-900">

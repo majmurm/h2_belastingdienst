@@ -40,6 +40,12 @@ export default function App() {
           netBenefit: run.summary.netBenefit ?? 0,
           roiRatio: run.summary.roiRatio ?? 0,
         },
+        results: {
+          ...run.results,
+          final: run.results?.final
+            ? { ...run.results.final, network_gif: undefined }
+            : run.results?.final,
+        },
         config: {
           ...defaultModelConfig,
           ...run.config,
@@ -51,6 +57,31 @@ export default function App() {
       return [];
     }
   });
+
+  const compressResultsForHistory = (results: ModelResults): ModelResults => {
+    const steps = results.steps ?? [];
+    const maxSteps = 60;
+    if (steps.length <= maxSteps) {
+      return {
+        ...results,
+        final: { ...results.final, network_gif: undefined },
+      };
+    }
+
+    const indices = new Set<number>([0, steps.length - 1]);
+    const stride = Math.max(1, Math.floor(steps.length / (maxSteps - 1)));
+    for (let i = stride; i < steps.length - 1; i += stride) {
+      indices.add(i);
+    }
+    const ordered = Array.from(indices).sort((a, b) => a - b);
+    const reducedSteps = ordered.map((idx) => steps[idx]);
+
+    return {
+      ...results,
+      steps: reducedSteps,
+      final: { ...results.final, network_gif: undefined },
+    };
+  };
 
   const latestRunIds = useMemo<[string, string]>(() => {
     const ids = runHistory.slice(0, 2).map((run) => run.id);
@@ -107,12 +138,14 @@ export default function App() {
         roi_ratio: 0,
       };
 
+      const resultsForHistory = compressResultsForHistory(results);
+
       const runRecord: RunRecord = {
         id: runId,
         displayName: runId,
         timestamp: timestampStr,
         config: results.config,
-        results,
+        results: resultsForHistory,
         summary: {
           initialMean,
           finalMean,
@@ -126,7 +159,7 @@ export default function App() {
         runtimeMs: elapsedMs,
       };
       setLatestRunId(runId);
-      setRunHistory((prev) => [runRecord, ...prev]);
+      setRunHistory((prev) => [runRecord, ...prev].slice(0, 20));
       setActiveView('results');
       setCurrentStep(3);
       scrollToTop();
@@ -207,9 +240,23 @@ export default function App() {
   };
 
   const handleRenameRun = (runId: string, displayName: string) => {
+    if (runId === "__clear__") {
+      setRunHistory([]);
+      return;
+    }
     setRunHistory((prev) =>
       prev.map((run) => (run.id === runId ? { ...run, displayName } : run)),
     );
+  };
+
+  const handleDeleteRun = (runId: string) => {
+    setRunHistory((prev) => prev.filter((run) => run.id !== runId));
+    setComparisonRunIds((prev) => {
+      if (prev[0] === runId || prev[1] === runId) {
+        return ['current', 'current'];
+      }
+      return prev;
+    });
   };
 
   useEffect(() => {
@@ -270,6 +317,7 @@ export default function App() {
             onViewRun={handleViewRun}
             onDownloadRun={handleDownloadRun}
             onRenameRun={handleRenameRun}
+            onDeleteRun={handleDeleteRun}
           />
         );
       case 'information':
