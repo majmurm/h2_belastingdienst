@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-authors: Despoina Delipalla, Marit van den Helder & Marco Maier
+authors: Marco Maier, Despoina Delipalla, Marit van den Helder
 
 Supporting file for model.py, containing the definition functions of agents. It
 also contains the steps taken on an agent level in the model, such as updating

@@ -1,17 +1,58 @@
 """
-authors: Despoina Delipalla, Marit van den Helder & Marco Maier
+authors: Marco Maier, Despoina Delipalla, Marit van den Helder
 
 Main file to run model and show results.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
-from model import SMEAgent, SMEComplianceModel, report_tax_gap
+from model import SMEAgent, SMEComplianceModel
 from collections import Counter, defaultdict
 
 
+def report_tax_gap(model, step_label):
+    """Calculates and prints the difference between Potential and Actual Tax Revenue."""
+    total_potential = 0.0
+    total_actual = 0.0
+    gap_by_size = defaultdict(lambda: {"potential": 0.0, "actual": 0.0})
+
+    for a in model.agents:
+        potential = a.turnover * a.tax_rate
+        # Expected (on-time) payment under the incidence–intensity mapping
+        unpaid = model.expected_unpaid_tax(a)
+        actual = potential - unpaid
+        
+        total_potential += potential
+        total_actual += actual
+
+        gap_by_size[a.size_cat]["potential"] += potential
+        gap_by_size[a.size_cat]["actual"] += actual
+
+    total_gap = total_potential - total_actual
+        
+    #     tax_obligation = a.turnover * a.tax_rate
+    #     actual_taxes_paid = tax_obligation* a.propensity * (1/6)
+        
+    #     total_tax_obligation += tax_obligation
+    #     total_actual_taxes_paid += actual_taxes_paid
+
+    #     gap_by_size[a.size_cat]["potential"] += tax_obligation
+    #     gap_by_size[a.size_cat]["actual"] += actual_taxes_paid
+
+    # total_gap = total_tax_obligation - actual_taxes_paid
+
+    print(f"\n--- {step_label} TAX GAP ANALYSIS ---")
+    print(f"Total Potential:  {total_potential:,.2f}")
+    print(f"Total Collected:  {total_actual:,.2f}")
+    print(f"TOTAL GAP:        {total_gap:,.2f}")
+    print(f"Gap Percentage:   {(total_gap/total_potential)*100:.2f}%")
+
+    return total_gap
+
+
+
 # Number of Agents
-N = 1000
+N = 10000
 
 # Demographics
 size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
@@ -21,7 +62,7 @@ age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
 C_target = 0.693
 # C_target = 0.924 # alternative for individuals
 
-# # Audit Rates (Base Weekly Rates)
+# # Audit Rates (Base Yearly Rates according to Jaarreportage) 8200 audits / 2,400,000 SMEs
 # audit_rates = {
 #     ("Micro", "Young"): 0.0046,
 #     ("Micro", "Mature"): 0.0046,
@@ -60,8 +101,10 @@ audit_types = {
     "Standard": {"effect": 0.90, "cost": 775.0},  # corporate income tax return check
     "Deep": {
         "effect": 1.80,
-        "cost": 1550.0,
+        "cost": 1570.0,
     },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
+    # official source Belastingdienst: Scale 8, step 5 EUR3643 --> 1 FTE hr = EUR 21.07
+    # according to Cees sources: EUR 60
 }
 
 
@@ -86,11 +129,15 @@ model = SMEComplianceModel(
     audit_types=audit_types,
     channel_effects=channel_effects,
     intervention_costs=intervention_costs,
-    decay_factor=0.00005,
+    tax_gap_target_rate=0.05,
+    noncompliance_target_rate=0.30,
+    calibrate_baseline=True,
+    # underpayment_mean_if_noncompliant=None  # leave None to calibrate to the 5% target given the liability-weighted noncompliance
+    decay_factor=0.0005,
     seed=42,
 )
 
-print("Total number of agents:", len(model.agents))
+#print("Total number of agents:", len(model.agents))
 
 # 1. Capture Initial State
 initial_means = {}
@@ -107,6 +154,11 @@ for (size, age), vals in sorted(prop_by_group.items()):
 
 initial_total_mean = np.mean([a.propensity for a in model.agents])
 print("\nInitial mean propensity (total):", initial_total_mean)
+
+print("Initial non-compliance ratio (unweighted):", model.compute_noncompliance_ratio())
+print("Initial tax gap rate (gross, expected):", model.compute_tax_gap_rate())
+print("Calibrated mean underpayment | noncompliant:", model.underpayment_mean_if_noncompliant)
+
 
 initial_gap = report_tax_gap(model, "INITIAL (Step 0)")
 
@@ -134,6 +186,8 @@ final_total_mean = np.mean([a.propensity for a in model.agents])
 total_change = final_total_mean - initial_total_mean
 
 print(f"\nFinal mean propensity (total): {final_total_mean:.4f}")
+print("Final non-compliance ratio (unweighted):", model.compute_noncompliance_ratio())
+print("Final tax gap rate (gross, expected):", model.compute_tax_gap_rate())
 print(f"Total Change in Propensity:    {total_change:+.4f}")
 
 # 5. FINAL TAX GAP
@@ -167,7 +221,7 @@ fig, ax1 = plt.subplots(figsize=(14, 8), dpi=300)
 color = "tab:blue"
 ax1.set_xlabel("Time (Weeks)")
 ax1.set_ylabel("Mean Compliance Propensity", color=color, fontsize=12)
-ax1.set_ylim(0.60, 0.90)  # Feel free to adjust
+ax1.set_ylim(0.60, 1.00)  # Feel free to adjust
 
 # Plot individual groups with thinner lines
 for col in sorted(df.columns):

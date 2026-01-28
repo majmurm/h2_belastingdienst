@@ -1,5 +1,5 @@
 """
-authors: Despoina Delipalla, Marit van den Helder & Marco Maier
+authors: Marco Maier, Despoina Delipalla, Marit van den Helder
 
 Supporting file for report_results.py. Contains model initialization and
 what steps are taken on the model level.
@@ -18,6 +18,13 @@ from agents import SMEAgent
 
 # Self defined agents file
 import agents
+
+
+def clip01(x: float) -> float:
+    """
+    Make sure the compliance propensity is always between 0 and 1.
+    """
+    return float(max(0.0, min(1.0, x)))
 
 
 def compute_group_mean(model, size_cat, age_cat, has_advisor=None):
@@ -61,6 +68,10 @@ class SMEComplianceModel(Model):
         audit_types: dict,
         channel_effects: dict,
         intervention_costs: dict,
+        tax_gap_target_rate: float = 0.05,
+        noncompliance_target_rate: float = 0.30,
+        calibrate_baseline: bool = True,
+        underpayment_mean_if_noncompliant = None,
         decay_factor: float = 0.0,
         seed: int = 42,
         n_neighbours: int = 4,
@@ -78,6 +89,10 @@ class SMEComplianceModel(Model):
             audit_types: 3 types of audits with associated costs,
             channel_effects: effect size of communication channels,
             intervention_costs: costs of communication channels,
+            tax_gap_target_rate: target gross tax gap rate (0.05 for 5%),
+            noncompliance_target_rate: target non-compliance incidence (0.30 for 30%),
+            calibrate_baseline: if True, shifts initial propensities to match noncompliance_target_rate,
+            underpayment_mean_if_noncompliant: if provided, fixes the average underpayment intensity among evaders; otherwise calibrated to hit tax_gap_target_rate
             decay_factor: natural decay in compliance,
             seed: random seed for reproducibility,
             n_neighbours: average number of neighbors each agent has
@@ -103,9 +118,17 @@ class SMEComplianceModel(Model):
         self.intervention_costs = intervention_costs
         self.audit_rates = audit_rates
         self.decay_factor = decay_factor
-
+        
+        
+        # Link non-compliance incidence to the revenue-weighted tax gap
+        self.tax_gap_target_rate = float(tax_gap_target_rate)
+        self.noncompliance_target_rate = float(noncompliance_target_rate)
+        self.calibrate_baseline = bool(calibrate_baseline)
+        self.underpayment_mean_if_noncompliant = underpayment_mean_if_noncompliant  # calibrated later if None
+        
+        
         # Tracking variables
-        self.total_compliance_costs = 0.0  # Track total amount spent
+        self.total_compliance_costs = 0.0
         self.current_commun = 0.0
         self.sector_warnings = {}  # Stores active warnings per group
         self.is_high_urgency_week = False  # Flag to signal agents when to learn
@@ -159,7 +182,7 @@ class SMEComplianceModel(Model):
 
         # Create network structure to populate with agents
         prob = self.n_neighbours / self.N
-        graph = nx.erdos_renyi_graph(n=self.N, p=prob, seed=seed)
+        graph = nx.erdos_renyi_graph(n=self.N, p=prob, seed=seed) # What's an 'erdos_renyi graph'?
         self.grid = Network(G=graph, capacity=1, random=self.random)
         cells = list(self.grid.all_cells)
 
@@ -193,15 +216,25 @@ class SMEComplianceModel(Model):
                 alpha = self.kappa * mu
                 beta = self.kappa * (1.0 - mu)
                 propensity = float(self.rng.beta(alpha, beta))
+                # beta = (1.0 / mu) - 1.0   # power-law shape parameter
+                # propensity = 1.0 - self.rng.random() ** (1.0 / beta)
 
+
+            # if s == "Micro":
+            #     turnover = self.rng.uniform(10_000, 2_000_000)
+            # elif s == "Small":
+            #     turnover = self.rng.uniform(2_000_000, 10_000_000)
+            # else:
+            #     turnover = self.rng.uniform(10_000_000, 50_000_000)
+            
             if s == "Micro":
-                turnover = self.rng.uniform(10_000, 2_000_000)
+                turnover = self.rng.uniform(80_000, 400_000) # What is the actual prob distribution for turnover of companies? It is definitely not uniform
             elif s == "Small":
-                turnover = self.rng.uniform(2_000_000, 10_000_000)
+                turnover = self.rng.uniform(400_000, 2_500_000)
             else:
-                turnover = self.rng.uniform(10_000_000, 50_000_000)
-
-            tax_rate = self.rng.uniform(0.2995, 0.3005)  # Assuming a tax rate of 30%
+                turnover = self.rng.uniform(2_500_000, 20_000_000)
+            
+            tax_rate = self.rng.uniform(0.2999, 0.3001)  # Assuming a tax rate of 30%
 
             SMEAgent(
                 self,
@@ -216,7 +249,10 @@ class SMEComplianceModel(Model):
 
         # Pre-calculate counts per group to easily calculate targeted costs later
         self.group_counts = Counter((a.size_cat, a.age_cat) for a in self.agents)
-
+        
+        # Calibrate the (propensity -> tax gap) mapping so that baseline matches targets
+        self._calibrate_tax_gap_link()
+        
         # Data reporting setup 18 Classes (Size x Age x Advisor)
         model_reporters = {}
         advisor_states = [True, False]
@@ -236,9 +272,88 @@ class SMEComplianceModel(Model):
             [a.propensity for a in m.agents]
         )
         model_reporters["% Audited"] = get_audit_percent
+        model_reporters["Non-Compliance Ratio"] = lambda m: m.compute_noncompliance_ratio()
+        model_reporters["Tax Gap %"] = lambda m: m.compute_tax_gap_rate()
+        model_reporters["Mean Underpayment | Noncompliant"] = lambda m: float(m.underpayment_mean_if_noncompliant or 0.0)
 
         self.datacollector = DataCollector(model_reporters=model_reporters)
+    
+    
+    
+    # Tax gap accounting
+    def _agent_liability(self, a) -> float:
+        return float(a.turnover * a.tax_rate)
 
+    def compute_noncompliance_ratio(self) -> float:
+        """Unweighted incidence proxy: E[1 - propensity]."""
+        return float(np.mean([1.0 - a.propensity for a in self.agents]))
+
+    def compute_weighted_noncompliance(self) -> float:
+        """Liability-weighted incidence proxy used in the tax-gap identity."""
+        total_L = 0.0
+        total_L_p = 0.0
+        for a in self.agents:
+            L = self._agent_liability(a)
+            p = 1.0 - a.propensity
+            total_L += L
+            total_L_p += L * p
+        return float(total_L_p / total_L) if total_L > 0 else 0.0
+
+    def expected_unpaid_tax(self, a) -> float:
+        """E[unpaid] = Liability * P(noncompliant) * E[underpayment | noncompliant]."""
+        L = self._agent_liability(a)
+        p_noncomp = 1.0 - a.propensity
+        u = float(self.underpayment_mean_if_noncompliant or 0.0)
+        return float(L * p_noncomp * u)
+
+    def expected_paid_tax(self, a) -> float:
+        L = self._agent_liability(a)
+        return float(L - self.expected_unpaid_tax(a))
+
+    def compute_tax_gap_rate(self) -> float:
+        total_L = 0.0
+        total_unpaid = 0.0
+        for a in self.agents:
+            L = self._agent_liability(a)
+            total_L += L
+            total_unpaid += self.expected_unpaid_tax(a)
+        return float(total_unpaid / total_L) if total_L > 0 else 0.0
+
+    def _calibrate_tax_gap_link(self) -> None:
+        """
+        Ensures baseline consistency between:
+          - noncompliance_target_rate (incidence: mean(1 - propensity)), and
+          - tax_gap_target_rate (revenue-weighted gap: sum L*p*u / sum L).
+
+        Implementation:
+          1) Optionally shift initial propensities so mean(1 - propensity) matches target.
+          2) If underpayment_mean_if_noncompliant is None, set it so the baseline tax gap matches target.
+        """
+        # 1) Shift propensities so that unweighted noncompliance matches target
+        if self.calibrate_baseline:
+            target_mean_compliance = 1.0 - self.noncompliance_target_rate
+            current_mean_compliance = float(np.mean([a.propensity for a in self.agents]))
+            delta = target_mean_compliance - current_mean_compliance
+            if abs(delta) > 1e-12:
+                for a in self.agents:
+                    a.propensity = clip01(a.propensity + delta)
+
+        # 2) Calibrate average underpayment intensity among evaders (u) to hit the target tax gap
+        if self.underpayment_mean_if_noncompliant is None:
+            w_noncomp = self.compute_weighted_noncompliance()
+            if w_noncomp <= 0.0:
+                self.underpayment_mean_if_noncompliant = 0.0
+            else:
+                u = self.tax_gap_target_rate / w_noncomp
+                # If u>1, the pair (tax_gap_target_rate, noncompliance distribution) is inconsistent under this model
+                self.underpayment_mean_if_noncompliant = float(max(0.0, min(1.0, u)))
+
+        # Note: underpayment_mean_if_noncompliant stays fixed unless you choose to model it as endogenous.
+    
+    
+    
+    
+    
     def auditing_strategy(self):
         """
         Executes the audit logic for the current week.
@@ -267,7 +382,7 @@ class SMEComplianceModel(Model):
             # If it's campaign month, concentrate the annual power (x12).
             # Otherwise, rate is 0.
             if is_audit_campaign:
-                current_rate = base_rate * 12  # edit --> remnant
+                current_rate = base_rate #* 12  # edit --> remnant
             else:
                 current_rate = 0.0
 
@@ -426,29 +541,3 @@ class SMEComplianceModel(Model):
         self.datacollector.collect(self)
         self.step_count += 1
 
-
-def report_tax_gap(model, step_label):
-    """Calculates and prints the difference between Potential and Actual Tax Revenue."""
-    total_potential = 0.0
-    total_actual = 0.0
-    gap_by_size = defaultdict(lambda: {"potential": 0.0, "actual": 0.0})
-
-    for a in model.agents:
-        potential = a.turnover * a.tax_rate
-        actual = potential * a.propensity
-
-        total_potential += potential
-        total_actual += actual
-
-        gap_by_size[a.size_cat]["potential"] += potential
-        gap_by_size[a.size_cat]["actual"] += actual
-
-    total_gap = total_potential - total_actual
-
-    print(f"\n--- {step_label} TAX GAP ANALYSIS ---")
-    print(f"Total Potential:  {total_potential:,.2f}")
-    print(f"Total Collected:  {total_actual:,.2f}")
-    print(f"TOTAL GAP:        {total_gap:,.2f}")
-    print(f"Gap Percentage:   {(total_gap/total_potential)*100:.2f}%")
-
-    return total_gap
