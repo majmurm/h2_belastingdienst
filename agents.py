@@ -10,6 +10,7 @@ the compliance propensity.
 # Imports
 import mesa
 from mesa import Agent
+import math
 
 
 def clip01(x: float) -> float:

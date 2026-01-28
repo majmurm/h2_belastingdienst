@@ -68,6 +68,7 @@ class SMEComplianceModel(Model):
         audit_types: dict,
         channel_effects: dict,
         intervention_costs: dict,
+        communication_schedule: dict,
         tax_gap_target_rate: float = 0.05,
         noncompliance_target_rate: float = 0.30,
         calibrate_baseline: bool = True,
@@ -119,7 +120,7 @@ class SMEComplianceModel(Model):
         self.intervention_costs = intervention_costs
         self.audit_rates = audit_rates
         self.decay_factor = decay_factor
-        
+        self.communication_schedule = communication_schedule
         
         # Link non-compliance incidence to the revenue-weighted tax gap
         self.tax_gap_target_rate = float(tax_gap_target_rate)
@@ -332,13 +333,13 @@ class SMEComplianceModel(Model):
           2) If underpayment_mean_if_noncompliant is None, set it so the baseline tax gap matches target.
         """
         # 1) Shift propensities so that unweighted noncompliance matches target
-        if self.calibrate_baseline:
-            target_mean_compliance = 1.0 - self.noncompliance_target_rate
-            current_mean_compliance = float(np.mean([a.propensity for a in self.agents]))
-            delta = target_mean_compliance - current_mean_compliance
-            if abs(delta) > 1e-12:
-                for a in self.agents:
-                    a.propensity = clip01(a.propensity + delta)
+        # if self.calibrate_baseline:
+        #     target_mean_compliance = 1.0 - self.noncompliance_target_rate
+        #     current_mean_compliance = float(np.mean([a.propensity for a in self.agents]))
+        #     delta = target_mean_compliance - current_mean_compliance
+        #     if abs(delta) > 1e-12:
+        #         for a in self.agents:
+        #             a.propensity = clip01(a.propensity + delta)
 
         # 2) Calibrate average underpayment intensity among evaders (u) to hit the target tax gap
         if self.underpayment_mean_if_noncompliant is None:
@@ -479,10 +480,35 @@ class SMEComplianceModel(Model):
         """
         current_week = self.step_count % 52
         self.current_week = current_week
-        # 1. Define Critical Weeks
-        week_early = self.tax_deadline_week - 4  # Week 8
-        week_mid = self.tax_deadline_week - 2  # Week 10
-        week_late = self.tax_deadline_week - 1  # Week 11
+        
+        # Calculate weeks remaining until deadline
+        weeks_until_deadline = self.tax_deadline_week - current_week
+        
+        # Reset weekly flags
+        self.is_high_urgency_week = False
+        self.sector_warnings.clear()  # Reset targeted warnings each step
+        self.current_commun = 0.0  # Default state: No communication
+        
+        if weeks_until_deadline in self.communication_schedule:
+            
+            todays_channels = self.communication_schedule[weeks_until_deadline]
+            
+            # Automatic Urgency Rule:
+            # If we are exactly 1 week away, everything is twice as effective.
+            urgency_multiplier = 2.0 if weeks_until_deadline == 1 else 1.0
+
+            for channel in todays_channels:
+                # 1. Apply effect with multiplier
+                base_effect = self.channel_effects[channel]
+                self.current_commun += base_effect * urgency_multiplier
+                
+                # 2. Apply cost (Cost does not double, only effect)
+                self.total_compliance_costs += self.N * self.intervention_costs[channel]
+        
+        # # 1. Define Critical Weeks
+        # week_early = self.tax_deadline_week - 4  # Week 8
+        # week_mid = self.tax_deadline_week - 2  # Week 10
+        # week_late = self.tax_deadline_week - 1  # Week 11
 
         # Company Visit Window:
         # Audit (Week 20) + 8 weeks = Week 28. 8 week delay is arbitrarily chosen to reflect a time period after the auditing period
@@ -490,32 +516,27 @@ class SMEComplianceModel(Model):
         # Company Visit Campaign week (configurable)
         week_visit_campaign = self.warning_visit_week
 
-        # Reset weekly flags
-        self.is_high_urgency_week = False
-        self.sector_warnings.clear()  # Reset targeted warnings each step
-        self.current_commun = 0.0  # Default state: No communication
+        # # 2. Communication Strategy (Nudges)
+        # if current_week == week_early:
+        #     # 4 Weeks before: Physical Letter (Low effect)
+        #     self.current_commun = self.channel_effects["physical_letter"]
 
-        # 2. Communication Strategy (Nudges)
-        if current_week == week_early:
-            # 4 Weeks before: Physical Letter (Low effect)
-            self.current_commun = self.channel_effects["physical_letter"]
+        #     # Add Cost (Everyone gets it)
+        #     self.total_compliance_costs += (
+        #         self.N * self.intervention_costs["physical_letter"]
+        #     )
 
-            # Add Cost (Everyone gets it)
-            self.total_compliance_costs += (
-                self.N * self.intervention_costs["physical_letter"]
-            )
+        # elif current_week == week_mid:
+        #     # 2 Weeks before: eMail (Medium effect)
+        #     self.current_commun = self.channel_effects["email"]
+        #     # Add Cost (Everyone gets it)
+        #     self.total_compliance_costs += self.N * self.intervention_costs["email"]
 
-        elif current_week == week_mid:
-            # 2 Weeks before: eMail (Medium effect)
-            self.current_commun = self.channel_effects["email"]
-            # Add Cost (Everyone gets it)
-            self.total_compliance_costs += self.N * self.intervention_costs["email"]
-
-        elif current_week == week_late:
-            # 1 Week before: eMail (High effect - double of the default value to reflect the urgency of the pending deadline)
-            self.current_commun = self.channel_effects["email"] * 2.0
-            # Add costs
-            self.total_compliance_costs += self.N * self.intervention_costs["email"]
+        # elif current_week == week_late:
+        #     # 1 Week before: eMail (High effect - double of the default value to reflect the urgency of the pending deadline)
+        #     self.current_commun = self.channel_effects["email"] * 2.0
+        #     # Add costs
+        #     self.total_compliance_costs += self.N * self.intervention_costs["email"]
 
         # 3. Targeted Company Visits (Warning Letters)
         if current_week == week_visit_campaign:
