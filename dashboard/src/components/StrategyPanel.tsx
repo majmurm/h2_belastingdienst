@@ -12,6 +12,7 @@ interface StrategyPanelProps {
   onInterrupt: () => void;
   isRunning: boolean;
   estimatedRuntimeMs: number | null;
+  progress?: { current: number; total: number };
 }
 
 const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
@@ -30,6 +31,7 @@ export function StrategyPanel({
   onInterrupt,
   isRunning,
   estimatedRuntimeMs,
+  progress,
 }: StrategyPanelProps) {
   const [auditRateInputs, setAuditRateInputs] = useState<Record<string, string>>({});
   const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>({
@@ -874,33 +876,51 @@ export function StrategyPanel({
       </div>
 
       <div className="mt-8 flex justify-end">
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-slate-500">
-            Estimated runtime:{" "}
-            <span className="text-slate-900">
-              {estimatedRuntimeMs !== null ? `${(estimatedRuntimeMs / 1000).toFixed(2)}s` : "—"}
-            </span>
-          </div>
-          {isRunning && (
-            <button
-              onClick={onInterrupt}
-              className="px-5 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Interrupt
-            </button>
+        <div className="flex flex-col items-end gap-3">
+          {isRunning && progress && progress.total > 0 && (
+            <div className="w-80">
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                <span>
+                  Progress: {progress.current} / {progress.total} steps
+                </span>
+                <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+              </div>
+              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600"
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                />
+              </div>
+            </div>
           )}
-          <button
-            onClick={onRun}
-            disabled={isRunning}
-            className={`px-6 py-2.5 rounded-md flex items-center gap-2 ${
-              isRunning
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            {isRunning ? "Running Simulation..." : "Run Simulation"}
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-slate-500">
+              Estimated runtime:{" "}
+              <span className="text-slate-900">
+                {estimatedRuntimeMs !== null ? `${(estimatedRuntimeMs / 1000).toFixed(2)}s` : "—"}
+              </span>
+            </div>
+            {isRunning && (
+              <button
+                onClick={onInterrupt}
+                className="px-5 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+              >
+                Interrupt
+              </button>
+            )}
+            <button
+              onClick={onRun}
+              disabled={isRunning}
+              className={`px-6 py-2.5 rounded-md flex items-center gap-2 ${
+                isRunning
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {isRunning ? "Running Simulation..." : "Run Simulation"}
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -30,13 +30,17 @@ const writeJson = (res, statusCode, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+let activeProgressPath = null;
+
 const runModel = async (config, { signal } = {}) => {
   const tempDir = await fs.mkdtemp(path.join(tmpdir(), "sme-model-"));
   const configPath = path.join(tempDir, "config.json");
+  const progressPath = path.join(tempDir, "progress.json");
+  activeProgressPath = progressPath;
   await fs.writeFile(configPath, JSON.stringify(config), "utf-8");
 
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonCmd, [modelPath, "--json", "--config", configPath], {
+    const child = spawn(pythonCmd, [modelPath, "--json", "--config", configPath, "--progress", progressPath], {
       cwd: repoRoot,
     });
 
@@ -102,6 +106,9 @@ const runModel = async (config, { signal } = {}) => {
     } catch {
       // Ignore cleanup errors.
     }
+    if (activeProgressPath === progressPath) {
+      activeProgressPath = null;
+    }
   });
 };
 
@@ -122,6 +129,21 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       const status = abortController.signal.aborted ? 499 : 500;
       writeJson(res, status, { error: err.message });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/api/model/progress") {
+    if (!activeProgressPath) {
+      writeJson(res, 200, { current_step: 0, total_steps: 0, running: false });
+      return;
+    }
+    try {
+      const data = await fs.readFile(activeProgressPath, "utf-8");
+      const payload = JSON.parse(data);
+      writeJson(res, 200, { ...payload, running: true });
+    } catch (err) {
+      writeJson(res, 200, { current_step: 0, total_steps: 0, running: true });
     }
     return;
   }

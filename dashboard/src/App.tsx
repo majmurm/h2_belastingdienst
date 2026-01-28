@@ -7,7 +7,7 @@ import { ComparisonPanel } from './components/ComparisonPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import { InformationPanel } from './components/InformationPanel';
 import { defaultModelConfig } from './data/modelDefaults';
-import { runModel } from './data/modelApi';
+import { fetchModelProgress, runModel } from './data/modelApi';
 import type { ModelConfig, ModelResults } from './data/modelTypes';
 import type { RunRecord } from './data/runHistory';
 
@@ -23,6 +23,7 @@ export default function App() {
   const [runtimeMs, setRuntimeMs] = useState<number | null>(null);
   const [estimatedRuntimeMs, setEstimatedRuntimeMs] = useState<number | null>(null);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [autoExport, setAutoExport] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [runHistory, setRunHistory] = useState<RunRecord[]>(() => {
@@ -100,6 +101,7 @@ export default function App() {
   const handleRunSimulation = async () => {
     setIsRunning(true);
     setRunError(null);
+    setProgress({ current: 0, total: 0 });
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -172,6 +174,29 @@ export default function App() {
     abortControllerRef.current?.abort();
   };
 
+  useEffect(() => {
+    if (!isRunning) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const payload = await fetchModelProgress();
+        if (!cancelled) {
+          setProgress({ current: payload.current_step, total: payload.total_steps });
+        }
+      } catch {
+        if (!cancelled) {
+          setProgress((prev) => prev);
+        }
+      }
+    };
+    poll();
+    const interval = window.setInterval(poll, 500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [isRunning]);
+
   const handleCompareRuns = (runIds: [string, string]) => {
     setComparisonRunIds(runIds);
     setActiveView('compare');
@@ -231,6 +256,7 @@ export default function App() {
             onInterrupt={handleInterruptRun}
             isRunning={isRunning}
             estimatedRuntimeMs={estimatedRuntimeMs}
+            progress={progress}
           />
         );
       case 'results':

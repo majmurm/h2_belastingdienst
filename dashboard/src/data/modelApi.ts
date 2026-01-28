@@ -19,3 +19,15 @@ export async function runModel(
 
   return response.json();
 }
+
+export async function fetchModelProgress(): Promise<{
+  current_step: number;
+  total_steps: number;
+  running: boolean;
+}> {
+  const response = await fetch("/api/model/progress");
+  if (!response.ok) {
+    throw new Error("Failed to fetch model progress.");
+  }
+  return response.json();
+}
