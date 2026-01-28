@@ -59,6 +59,9 @@ class SMEAgent(Agent):
         # Initialize to -999 so they are eligible immediately (since step_count starts at 0).
         self.last_audit_step = -999
 
+        # Keep track of initial propensity for running multiple simulations
+        self.initial_propensity = propensity
+        
         cell.add_agent(self)
 
         self.cell = cell
