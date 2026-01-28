@@ -21,7 +21,6 @@ export default function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [runtimeMs, setRuntimeMs] = useState<number | null>(null);
-  const [estimatedRuntimeMs, setEstimatedRuntimeMs] = useState<number | null>(null);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [autoExport, setAutoExport] = useState(false);
@@ -34,6 +33,7 @@ export default function App() {
       const parsed = JSON.parse(stored) as RunRecord[];
       return parsed.map((run) => ({
         ...run,
+        displayName: run.displayName ?? run.id,
         summary: {
           ...run.summary,
           totalCost: run.summary.totalCost ?? 0,
@@ -59,29 +59,6 @@ export default function App() {
     return ['current', 'current'];
   }, [runHistory]);
 
-  const estimatedRuntimeFromHistory = useMemo<number | null>(() => {
-    const samples = runHistory.filter(
-      (run) => typeof run.runtimeMs === 'number' && run.runtimeMs > 0 && run.config.steps > 0,
-    );
-
-    if (samples.length === 0) {
-      const lastRunSteps = modelResults?.config.steps ?? modelConfig.steps;
-      if (runtimeMs !== null && runtimeMs > 0 && lastRunSteps > 0) {
-        return (runtimeMs / lastRunSteps) * modelConfig.steps;
-      }
-      return null;
-    }
-
-    const avgPerStepMs =
-      samples.reduce((sum, run) => sum + (run.runtimeMs as number) / run.config.steps, 0) /
-      samples.length;
-
-    return avgPerStepMs * modelConfig.steps;
-  }, [runHistory, runtimeMs, modelConfig.steps, modelResults]);
-
-  useEffect(() => {
-    setEstimatedRuntimeMs(estimatedRuntimeFromHistory);
-  }, [estimatedRuntimeFromHistory]);
 
   const scrollToTop = () => {
     const mainElement = document.querySelector('main');
@@ -132,6 +109,7 @@ export default function App() {
 
       const runRecord: RunRecord = {
         id: runId,
+        displayName: runId,
         timestamp: timestampStr,
         config: results.config,
         results,
@@ -228,6 +206,12 @@ export default function App() {
     scrollToTop();
   };
 
+  const handleRenameRun = (runId: string, displayName: string) => {
+    setRunHistory((prev) =>
+      prev.map((run) => (run.id === runId ? { ...run, displayName } : run)),
+    );
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -255,7 +239,6 @@ export default function App() {
             onRun={handleRunSimulation}
             onInterrupt={handleInterruptRun}
             isRunning={isRunning}
-            estimatedRuntimeMs={estimatedRuntimeMs}
             progress={progress}
           />
         );
@@ -286,6 +269,7 @@ export default function App() {
             onCompareRuns={handleCompareRuns}
             onViewRun={handleViewRun}
             onDownloadRun={handleDownloadRun}
+            onRenameRun={handleRenameRun}
           />
         );
       case 'information':

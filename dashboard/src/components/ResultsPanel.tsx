@@ -12,6 +12,7 @@ import {
 import { Clock, Download, AlertCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModelConfig, ModelResults, GroupKey, TaxGapEntry } from "../data/modelTypes";
+import { defaultModelConfig } from "../data/modelDefaults";
 
 
 interface ResultsPanelProps {
@@ -58,6 +59,9 @@ export function ResultsPanel({
   );
   const [isExporting, setIsExporting] = useState(false);
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const selectedConfig = results?.config ?? config;
+  const auditHours = selectedConfig.audit_hours ?? defaultModelConfig.audit_hours;
+  const auditHourPrice = selectedConfig.audit_hour_price ?? defaultModelConfig.audit_hour_price;
 
   const handleExportPdf = () => {
     const target = resultsRef.current;
@@ -222,8 +226,6 @@ export function ResultsPanel({
   const groupTaxGap = currentStep?.tax_gap.by_group ?? ({} as Record<GroupKey, TaxGapEntry>);
   const selectedSet = new Set(selectedGroups);
 
-  const selectedConfig = results?.config ?? config;
-
   return (
     <div ref={resultsRef} className="p-12 max-w-6xl print-results">
       <div className="mb-8">
@@ -238,6 +240,11 @@ export function ResultsPanel({
             <p className="text-slate-600">
               Model outputs for the configured population and strategy.
             </p>
+            {selectedConfig.n_runs > 1 && (
+              <p className="text-slate-500 text-sm mt-2">
+                Averaged over {selectedConfig.n_runs} runs.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3 print-hide">
             <Clock className="w-4 h-4" />
@@ -309,14 +316,6 @@ export function ResultsPanel({
                     Old {(selectedConfig.age_shares.Old * 100).toFixed(1)}%
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Target Mean (C_target):</span>
-                  <span className="text-slate-900">{selectedConfig.C_target.toFixed(3)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Dispersion (kappa):</span>
-                  <span className="text-slate-900">{selectedConfig.kappa}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -341,7 +340,7 @@ export function ResultsPanel({
 
           <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Key Performance Indicators</h3>
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-600 mb-2">Overall Mean Propensity</h3>
                 <div className="text-slate-900 mb-1">{currentStep?.overall_mean.toFixed(3)}</div>
@@ -349,7 +348,7 @@ export function ResultsPanel({
               </div>
 
               <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">Delta from Step 0</h3>
+                <h3 className="text-slate-600 mb-2">Change from Step 0</h3>
                 <div
                   className={`mb-1 ${
                     (currentStep?.overall_mean ?? 0) - (initialStep?.overall_mean ?? 0) >= 0
@@ -361,18 +360,6 @@ export function ResultsPanel({
                 </div>
                 <p className="text-slate-500">Change since baseline</p>
               </div>
-
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">High Compliance</h3>
-                <div className="text-slate-900 mb-1">{currentStep?.high_compliance_pct.toFixed(1)}%</div>
-                <p className="text-slate-500">Propensity ≥ 0.8</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">% Audited This Step</h3>
-                <div className="text-slate-900 mb-1">{currentStep?.overall_audited_pct.toFixed(2)}%</div>
-                <p className="text-slate-500">Overall population</p>
-              </div>
             </div>
           </div>
 
@@ -382,19 +369,23 @@ export function ResultsPanel({
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-600 mb-2">Tax Gap Reduction</h3>
                 <div className="text-slate-900 mb-1">
-                  {results.summary ? formatCurrency(results.summary.tax_gap_reduction) : "—"}
+                  {results.summary && results.initial.tax_gap.total_gap > 0
+                    ? `${(((results.summary.tax_gap_reduction ?? 0) / results.initial.tax_gap.total_gap) * 100).toFixed(1)}%`
+                    : "—"}
                 </div>
-                <p className="text-slate-500">Final vs baseline</p>
+                <p className="text-slate-500">
+                  % of baseline
+                </p>
               </div>
               <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">Total Cost</h3>
+                <h3 className="text-slate-600 mb-2">Estimated Cost</h3>
                 <div className="text-slate-900 mb-1">
                   {results.summary ? formatCurrency(results.summary.total_cost) : "—"}
                 </div>
                 <p className="text-slate-500">All interventions</p>
               </div>
               <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">Net Benefit</h3>
+                <h3 className="text-slate-600 mb-2">Estimated Net Benefit</h3>
                 <div className="text-slate-900 mb-1">
                   {results.summary ? formatCurrency(results.summary.net_benefit) : "—"}
                 </div>
@@ -408,12 +399,66 @@ export function ResultsPanel({
                 <p className="text-slate-500">Return per €1 spent</p>
               </div>
             </div>
+            <details className="mt-6 bg-white rounded-lg border border-slate-200">
+              <summary className="cursor-pointer list-none px-6 py-4 text-slate-900 text-md font-medium flex items-center justify-between">
+                <span>Cost Assumptions Used</span>
+                <span className="text-slate-400 text-sm">Show details</span>
+              </summary>
+              <div className="px-6 pb-8">
+                <div className="grid grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <h4 className="text-slate-700 font-medium mb-2">Audit Hours & FTE Price</h4>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Light</span>
+                        <span className="text-slate-900">
+                          {auditHours.Light}h × {formatCurrency(auditHourPrice.Light)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Standard</span>
+                        <span className="text-slate-900">
+                          {auditHours.Standard}h × {formatCurrency(auditHourPrice.Standard)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between mb-3">
+                        <span className="text-slate-600">Deep</span>
+                        <span className="text-slate-900">
+                          {auditHours.Deep}h × {formatCurrency(auditHourPrice.Deep)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-slate-700 font-medium mb-2">Communication Cost per Unit</h4>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Email</span>
+                        <span className="text-slate-900">{formatCurrency(selectedConfig.intervention_costs.email)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Physical Letter</span>
+                        <span className="text-slate-900">
+                          {formatCurrency(selectedConfig.intervention_costs.physical_letter)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between mb-3">
+                        <span className="text-slate-600">Warning Letter</span>
+                        <span className="text-slate-900">
+                          {formatCurrency(selectedConfig.intervention_costs.warning_letter)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <div className="mb-8">
             <div className="bg-white rounded-lg border border-slate-200 p-6">
               <h3 className="text-slate-900 text-md font-medium mb-4">
-                Annual Tax Gap by Group (Current Step)
+                Annual Tax Gap by Group
               </h3>
               <p className="text-slate-600 mb-4">
                 Estimated annual revenue loss from non-compliance per enterprise group.
@@ -563,15 +608,15 @@ export function ResultsPanel({
                 <h3 className="text-slate-900 text-md font-medium mb-4">
                   Network Compliance Evolution
                 </h3>
-                <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg p-4">
+                <div className="flex flex-col items-start justify-center bg-slate-50 rounded-lg p-4 text-left">
                   {/* DISPLAY GIF HERE */}
                   <img 
                     src={`data:image/gif;base64,${(results.final as any).network_gif}`} 
                     alt="Network Animation" 
-                    className="max-w-full h-auto rounded shadow-sm border border-slate-200"
+                    className="max-w-full h-auto rounded shadow-sm border border-slate-200 self-center"
                     style={{ maxHeight: "600px" }}
                   />
-                  <div className="flex items-center gap-4 mt-4">
+                  <div className="flex items-center gap-4 mt-4 self-center">
                     <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full bg-purple-700"></span>
 
@@ -582,7 +627,7 @@ export function ResultsPanel({
 
                     </div>
                   </div>
-                    <p className="text-sm text-slate-600 mt-3 text-center max-w-2xl italic leading-relaxed">
+                    <p className="text-sm text-slate-600 mt-3 text-left max-w-2xl italic leading-relaxed">
                     Evolution of compliance within the SME network over the {selectedConfig.steps}-week simulation period. 
                     Nodes represent individual agents (N={selectedConfig.N.toLocaleString()}), colored by compliance level. 
                    </p>

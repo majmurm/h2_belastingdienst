@@ -13,6 +13,7 @@ export interface RunSummary {
 
 export interface RunRecord {
   id: string;
+  displayName?: string;
   timestamp: string;
   config: ModelConfig;
   results: ModelResults;

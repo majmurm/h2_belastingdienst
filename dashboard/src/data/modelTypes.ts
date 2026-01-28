@@ -31,8 +31,12 @@ export interface ModelConfig {
   kappa: number;
   audit_rates: Record<GroupKey, number>;
   audit_types: Record<AuditTypeKey, { effect: number; cost: number }>;
+  audit_hours: Record<AuditTypeKey, number>;
+  audit_hour_price: Record<AuditTypeKey, number>;
   channel_effects: Record<ChannelKey, number>;
   intervention_costs: Record<ChannelKey, number>;
+  communication_schedule: Record<number, ChannelKey[]>;
+  n_runs: number;
   tax_gap_target_rate: number;
   noncompliance_target_rate: number;
   calibrate_baseline: boolean;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Eye, Info, GitCompare } from 'lucide-react';
+import { Download, Eye, Info, GitCompare, Edit3, Check, X } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 import type { RunRecord } from '../data/runHistory';
 
@@ -8,6 +8,7 @@ interface HistoryPanelProps {
   onCompareRuns?: (runIds: [string, string]) => void;
   onViewRun?: (runId: string) => void;
   onDownloadRun?: (runId: string) => void;
+  onRenameRun?: (runId: string, displayName: string) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -15,19 +16,44 @@ const formatCurrency = (value: number) =>
     value,
   );
 
-export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun }: HistoryPanelProps) {
+export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun, onRenameRun }: HistoryPanelProps) {
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'details'>('table');
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
+  const [editingRunId, setEditingRunId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
 
   const viewDetails = (run: RunRecord) => {
     setSelectedRun(run);
     setViewMode('details');
   };
 
+  const startRename = (run: RunRecord) => {
+    setEditingRunId(run.id);
+    setEditingValue(run.displayName ?? run.id);
+  };
+
+  const cancelRename = () => {
+    setEditingRunId(null);
+    setEditingValue("");
+  };
+
+  const saveRename = () => {
+    if (!editingRunId) return;
+    const trimmed = editingValue.trim();
+    if (!trimmed) return;
+    onRenameRun?.(editingRunId, trimmed);
+    if (selectedRun?.id === editingRunId) {
+      setSelectedRun({ ...selectedRun, displayName: trimmed });
+    }
+    setEditingRunId(null);
+    setEditingValue("");
+  };
+
   const exportAllRuns = () => {
     const exportData = runs.map(run => ({
       runId: run.id,
+      displayName: run.displayName ?? run.id,
       timestamp: run.timestamp,
       parameters: {
         config: run.config,
@@ -119,8 +145,8 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun }: 
                       </Tooltip>
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-slate-700 w-16">ID</th>
-                  <th className="px-4 py-3 text-left text-slate-700">Timestamp</th>
+                  <th className="px-4 py-3 text-left text-slate-700 w-56">Name</th>
+                  <th className="px-4 py-3 text-left text-slate-700 w-36">Timestamp</th>
                   <th className="px-4 py-3 text-left text-slate-700 w-28">
                     <div className="flex items-center gap-1">
                       Delta
@@ -153,13 +179,50 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun }: 
                         className="w-4 h-4 text-[#0C3358] rounded border-slate-300 focus:ring-[#0C3358] disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                       />
                     </td>
-                    <td className="px-4 py-3 text-slate-900">{run.id}</td>
+                    <td className="px-4 py-3 text-slate-900">
+                      {editingRunId === run.id ? (
+                        <input
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          className="w-full px-2 py-1 border border-slate-300 rounded text-slate-700"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span>{run.displayName ?? run.id}</span>
+                          <button
+                            onClick={() => startRename(run)}
+                            className="text-slate-400 hover:text-slate-700"
+                            title="Rename run"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{run.timestamp}</td>
                     <td className="px-4 py-3 text-slate-900">{run.summary.deltaMean.toFixed(3)}</td>
                     <td className="px-4 py-3 text-slate-900">{formatCurrency(run.summary.taxGapReduction)}</td>
                     <td className="px-4 py-3 text-slate-900">{(run.summary.finalMean * 100).toFixed(1)}%</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        {editingRunId === run.id ? (
+                          <>
+                            <button
+                              onClick={saveRename}
+                              className="p-2 text-green-700 hover:bg-green-50 rounded transition-colors"
+                              title="Save name"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={cancelRename}
+                              className="p-2 text-slate-500 hover:bg-slate-100 rounded transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
                         <button
                           onClick={() => {
                             if (onViewRun) {
@@ -173,6 +236,7 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun }: 
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        )}
                         <button
                           onClick={() => onDownloadRun?.(run.id)}
                           className="p-2 text-[#0C3358] hover:bg-blue-50 rounded transition-colors"
@@ -194,7 +258,7 @@ export function HistoryPanel({ runs, onCompareRuns, onViewRun, onDownloadRun }: 
           <div className="bg-white rounded-lg border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-slate-900 mb-1">{selectedRun.id}</h2>
+                <h2 className="text-slate-900 mb-1">{selectedRun.displayName ?? selectedRun.id}</h2>
                 <p className="text-slate-600">Run Date: {selectedRun.timestamp}</p>
               </div>
               <button

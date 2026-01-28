@@ -335,6 +335,16 @@ def default_config() -> Dict[str, Any]:
             "Standard": {"effect": 0.90, "cost": 775.0},
             "Deep": {"effect": 1.80, "cost": 1570.0},
         },
+        "audit_hours": {
+            "Light": max(0, round(500.0 / 20.11)),
+            "Standard": max(0, round(775.0 / 20.11)),
+            "Deep": 78,
+        },
+        "audit_hour_price": {
+            "Light": 20.11,
+            "Standard": 20.11,
+            "Deep": 20.11,
+        },
         "channel_effects": {
             "physical_letter": 0.003,
             "email": 0.008,
@@ -345,6 +355,13 @@ def default_config() -> Dict[str, Any]:
             "physical_letter": 0.85,
             "warning_letter": 20.96,
         },
+        "communication_schedule": {
+            8: ["physical_letter", "email"],
+            6: ["email"],
+            2: ["physical_letter"],
+            1: ["email"],
+        },
+        "n_runs": 1,
         "tax_gap_target_rate": 0.05,
         "noncompliance_target_rate": 0.30,
         "calibrate_baseline": True,
@@ -359,10 +376,90 @@ def default_config() -> Dict[str, Any]:
     }
 
 
-def run_simulation(
-    config: Mapping[str, Any], progress_path: Optional[Path] = None
+def _average_dicts(dicts: Iterable[Mapping[Any, float]]) -> Dict[Any, float]:
+    totals: Dict[Any, float] = {}
+    counts: Dict[Any, int] = {}
+    for entry in dicts:
+        for key, value in entry.items():
+            totals[key] = totals.get(key, 0.0) + float(value)
+            counts[key] = counts.get(key, 0) + 1
+    return {key: totals[key] / counts[key] for key in totals}
+
+
+def _average_tax_gap(entries: list[Mapping[str, Any]]) -> Dict[str, Any]:
+    def avg_entry_list(items: list[Mapping[str, float]]) -> Dict[str, float]:
+        return {
+            "potential": float(np.mean([i["potential"] for i in items])) if items else 0.0,
+            "actual": float(np.mean([i["actual"] for i in items])) if items else 0.0,
+            "gap": float(np.mean([i["gap"] for i in items])) if items else 0.0,
+            "gap_pct": float(np.mean([i["gap_pct"] for i in items])) if items else 0.0,
+        }
+
+    total_potential = float(np.mean([e["total_potential"] for e in entries])) if entries else 0.0
+    total_actual = float(np.mean([e["total_actual"] for e in entries])) if entries else 0.0
+    total_gap = float(np.mean([e["total_gap"] for e in entries])) if entries else 0.0
+    gap_pct = float(np.mean([e["gap_pct"] for e in entries])) if entries else 0.0
+
+    by_size_keys = {k for e in entries for k in e.get("by_size", {}).keys()}
+    by_group_keys = {k for e in entries for k in e.get("by_group", {}).keys()}
+    by_sector_keys = {k for e in entries for k in e.get("by_sector", {}).keys()}
+
+    by_size = {
+        key: avg_entry_list([e["by_size"][key] for e in entries if key in e.get("by_size", {})])
+        for key in by_size_keys
+    }
+    by_group = {
+        key: avg_entry_list([e["by_group"][key] for e in entries if key in e.get("by_group", {})])
+        for key in by_group_keys
+    }
+    by_sector = {
+        key: avg_entry_list([e["by_sector"][key] for e in entries if key in e.get("by_sector", {})])
+        for key in by_sector_keys
+    }
+
+    return {
+        "total_potential": total_potential,
+        "total_actual": total_actual,
+        "total_gap": total_gap,
+        "gap_pct": gap_pct,
+        "by_size": by_size,
+        "by_group": by_group,
+        "by_sector": by_sector,
+    }
+
+
+def _average_steps(results_list: list[Mapping[str, Any]]) -> list[Dict[str, Any]]:
+    if not results_list:
+        return []
+    steps_len = len(results_list[0]["steps"])
+    averaged_steps: list[Dict[str, Any]] = []
+
+    for i in range(steps_len):
+        step_entries = [r["steps"][i] for r in results_list]
+        averaged_steps.append(
+            {
+                "step": step_entries[0]["step"],
+                "overall_mean": float(np.mean([s["overall_mean"] for s in step_entries])),
+                "mean_by_group": _average_dicts([s["mean_by_group"] for s in step_entries]),
+                "mean_by_sector": _average_dicts([s["mean_by_sector"] for s in step_entries]),
+                "overall_audited_pct": float(np.mean([s["overall_audited_pct"] for s in step_entries])),
+                "high_compliance_pct": float(np.mean([s["high_compliance_pct"] for s in step_entries])),
+                "tax_gap": _average_tax_gap([s["tax_gap"] for s in step_entries]),
+                "total_cost": float(np.mean([s["total_cost"] for s in step_entries])),
+            }
+        )
+
+    return averaged_steps
+
+
+def _run_single_simulation(
+    config: Mapping[str, Any],
+    progress_path: Optional[Path] = None,
+    progress_offset: int = 0,
+    total_steps: Optional[int] = None,
+    generate_gif: bool = True,
 ) -> Dict[str, Any]:
-    """Run the root model and return the dashboard JSON payload."""
+    """Run the root model once and return the dashboard JSON payload."""
     audit_rates = _normalize_audit_rates(config.get("audit_rates", {}))
     selected_sectors = _normalize_selected_sectors(config.get("selected_sectors"))
     sector_shares = _sector_shares_for_selection(selected_sectors)
@@ -381,6 +478,7 @@ def run_simulation(
         audit_types=dict(config["audit_types"]),
         channel_effects=dict(config["channel_effects"]),
         intervention_costs=dict(config["intervention_costs"]),
+        communication_schedule=dict(config.get("communication_schedule", {})),
         tax_gap_target_rate=float(config.get("tax_gap_target_rate", 0.05)),
         noncompliance_target_rate=float(config.get("noncompliance_target_rate", 0.30)),
         calibrate_baseline=bool(config.get("calibrate_baseline", True)),
@@ -417,7 +515,7 @@ def run_simulation(
             return
         payload = {
             "current_step": step,
-            "total_steps": int(config["steps"]),
+            "total_steps": int(total_steps) if total_steps is not None else int(config["steps"]),
         }
         try:
             progress_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -435,21 +533,22 @@ def run_simulation(
     # Capture Step 0
     initial_metrics = collect_step_metrics(model)
     steps.append({"step": 0, **initial_metrics})
-    gif_snapshots.append({"step": 0, "colors": capture_state(model, G_nodes)})
-    write_progress(0)
+    if generate_gif:
+        gif_snapshots.append({"step": 0, "colors": capture_state(model, G_nodes)})
+    write_progress(progress_offset)
 
     # Run Simulation
     for _ in range(T):
         model.step()
         steps.append({"step": int(model.step_count), **collect_step_metrics(model)})
 
-        if int(model.step_count) % snapshot_interval == 0:
+        if generate_gif and int(model.step_count) % snapshot_interval == 0:
             gif_snapshots.append(
                 {"step": int(model.step_count), "colors": capture_state(model, G_nodes)}
             )
-        write_progress(int(model.step_count))
+        write_progress(progress_offset + int(model.step_count))
 
-    if gif_snapshots[-1]["step"] != T:
+    if generate_gif and gif_snapshots and gif_snapshots[-1]["step"] != T:
         gif_snapshots.append({"step": T, "colors": capture_state(model, G_nodes)})
 
     initial_gap = float(initial_metrics["tax_gap"]["total_gap"])
@@ -459,7 +558,7 @@ def run_simulation(
     net_benefit = reduction - total_cost
     roi_ratio = (reduction / total_cost) if total_cost > 0 else 0.0
 
-    network_gif = generate_network_gif(model, gif_snapshots)
+    network_gif = generate_network_gif(model, gif_snapshots) if generate_gif else None
 
     return {
         "config": {
@@ -479,8 +578,66 @@ def run_simulation(
         "steps": steps,
         "final": {
             **steps[-1],
-            "network_gif": network_gif,
+            **({"network_gif": network_gif} if network_gif else {}),
         },
+        "summary": {
+            "tax_gap_reduction": reduction,
+            "total_cost": total_cost,
+            "net_benefit": net_benefit,
+            "roi_ratio": roi_ratio,
+        },
+    }
+
+
+def run_simulation(
+    config: Mapping[str, Any], progress_path: Optional[Path] = None
+) -> Dict[str, Any]:
+    """Run the root model and return the dashboard JSON payload."""
+    n_runs = int(config.get("n_runs", 1))
+    n_runs = max(1, n_runs)
+    steps_per_run = int(config["steps"])
+    total_steps = steps_per_run * n_runs
+
+    if n_runs == 1:
+        return _run_single_simulation(config, progress_path=progress_path, total_steps=total_steps)
+
+    results_list: list[Dict[str, Any]] = []
+    for run_idx in range(n_runs):
+        run_config = dict(config)
+        run_config["seed"] = int(config.get("seed", 42)) + run_idx
+        results_list.append(
+            _run_single_simulation(
+                run_config,
+                progress_path=progress_path,
+                progress_offset=run_idx * steps_per_run,
+                total_steps=total_steps,
+                generate_gif=False,
+            )
+        )
+
+    averaged_steps = _average_steps(results_list)
+    initial_metrics = averaged_steps[0]
+    final_metrics = averaged_steps[-1]
+    initial_gap = float(initial_metrics["tax_gap"]["total_gap"])
+    final_gap = float(final_metrics["tax_gap"]["total_gap"])
+    reduction = initial_gap - final_gap
+    total_cost = float(final_metrics["total_cost"])
+    net_benefit = reduction - total_cost
+    roi_ratio = (reduction / total_cost) if total_cost > 0 else 0.0
+
+    base_config = dict(results_list[0]["config"])
+    base_config["n_runs"] = n_runs
+
+    return {
+        "config": base_config,
+        "initial": {
+            "overall_mean": initial_metrics["overall_mean"],
+            "mean_by_group": initial_metrics["mean_by_group"],
+            "mean_by_sector": initial_metrics["mean_by_sector"],
+            "tax_gap": initial_metrics["tax_gap"],
+        },
+        "steps": averaged_steps,
+        "final": final_metrics,
         "summary": {
             "tax_gap_reduction": reduction,
             "total_cost": total_cost,

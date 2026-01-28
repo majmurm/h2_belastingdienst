@@ -11,7 +11,6 @@ interface StrategyPanelProps {
   onRun: () => void;
   onInterrupt: () => void;
   isRunning: boolean;
-  estimatedRuntimeMs: number | null;
   progress?: { current: number; total: number };
 }
 
@@ -30,51 +29,45 @@ export function StrategyPanel({
   onRun,
   onInterrupt,
   isRunning,
-  estimatedRuntimeMs,
   progress,
 }: StrategyPanelProps) {
   const [auditRateInputs, setAuditRateInputs] = useState<Record<string, string>>({});
-  const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>({
-    Light: 20.11,
-    Standard: 20.11,
-    Deep: 20.11,
-  });
-  const [auditHours, setAuditHours] = useState<Record<AuditTypeKey, number>>({
-    Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20.11)),
-    Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20.11)),
-    Deep: 78,
-  });
+  const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>(
+    config.audit_hour_price ?? {
+      Light: 20.11,
+      Standard: 20.11,
+      Deep: 20.11,
+    },
+  );
+  const [auditHours, setAuditHours] = useState<Record<AuditTypeKey, number>>(
+    config.audit_hours ?? {
+      Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20.11)),
+      Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20.11)),
+      Deep: 78,
+    },
+  );
   const [channelEmail, setChannelEmail] = useState(true);
   const [channelLetter, setChannelLetter] = useState(false);
-  const [channelSMS, setChannelSMS] = useState(false);
-  const [channelWarningLetter, setChannelWarningLetter] = useState(false);
   const [channelFrequency, setChannelFrequency] = useState({
-    email: 2,
-    letter: 2,
-    sms: 2,
+    email: 1,
+    letter: 1,
   });
   const [channelCost, setChannelCost] = useState({
     email: config.intervention_costs.email,
     letter: config.intervention_costs.physical_letter,
-    sms: 0,
-    warningLetter: config.intervention_costs.warning_letter,
   });
   const [channelTimings, setChannelTimings] = useState<{
     email: ChannelTiming[];
     letter: ChannelTiming[];
-    sms: ChannelTiming[];
   }>({
-    email: [{ value: 2, unit: "weeks" }],
-    letter: [{ value: 3, unit: "weeks" }],
-    sms: [{ value: 5, unit: "days" }],
-  });
-  const [warningLetterTiming, setWarningLetterTiming] = useState<ChannelTiming>({
-    value: 1,
-    unit: "weeks",
+    email: [{ value: 1, unit: "weeks" }],
+    letter: [{ value: 1, unit: "weeks" }],
   });
   const [warningVisitWeekInput, setWarningVisitWeekInput] = useState<string>(
     config.warning_visit_week ? String(config.warning_visit_week) : "",
   );
+  const multiRunEnabled = (config.n_runs ?? 1) > 1;
+  const runCount = Math.max(1, config.n_runs ?? 1);
 
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
@@ -89,6 +82,15 @@ export function StrategyPanel({
   }, [config.audit_rates]);
 
   useEffect(() => {
+    if (config.audit_hour_price) {
+      setAuditHourPrice(config.audit_hour_price);
+    }
+    if (config.audit_hours) {
+      setAuditHours(config.audit_hours);
+    }
+  }, [config.audit_hour_price, config.audit_hours]);
+
+  useEffect(() => {
     setWarningVisitWeekInput(config.warning_visit_week ? String(config.warning_visit_week) : "");
   }, [config.warning_visit_week]);
 
@@ -97,9 +99,8 @@ export function StrategyPanel({
       ...prev,
       email: config.intervention_costs.email,
       letter: config.intervention_costs.physical_letter,
-      warningLetter: config.intervention_costs.warning_letter,
     }));
-  }, [config.intervention_costs.email, config.intervention_costs.physical_letter, config.intervention_costs.warning_letter]);
+  }, [config.intervention_costs.email, config.intervention_costs.physical_letter]);
 
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
@@ -138,10 +139,18 @@ export function StrategyPanel({
         ...config.audit_types,
         [type]: { ...defaultModelConfig.audit_types[type] },
       },
+      audit_hours: {
+        ...config.audit_hours,
+        [type]: defaultHours,
+      },
+      audit_hour_price: {
+        ...config.audit_hour_price,
+        [type]: defaultPrice,
+      },
     });
   };
 
-  const updateReminderChannelCost = (channel: "email" | "letter" | "warningLetter", value: number) => {
+  const updateReminderChannelCost = (channel: "email" | "letter", value: number) => {
     const normalized = Math.max(0, value);
     setChannelCost((prev) => ({ ...prev, [channel]: normalized }));
     if (channel === "email") {
@@ -162,18 +171,12 @@ export function StrategyPanel({
       });
       return;
     }
-    updateConfig({
-      intervention_costs: {
-        ...config.intervention_costs,
-        warning_letter: normalized,
-      },
-    });
   };
 
   const computeAuditCost = (type: AuditTypeKey, hours: number, price: number) =>
     Math.max(0, Math.min(AUDIT_COST_MAX, hours * price));
 
-  const handleChannelFrequencyChange = (channel: "email" | "letter" | "sms", value: number) => {
+  const handleChannelFrequencyChange = (channel: "email" | "letter", value: number) => {
     const next = Math.max(1, Math.min(4, value));
     setChannelFrequency((prev) => ({
       ...prev,
@@ -193,7 +196,7 @@ export function StrategyPanel({
   };
 
   const updateChannelTiming = (
-    channel: "email" | "letter" | "sms",
+    channel: "email" | "letter",
     index: number,
     field: "value" | "unit",
     value: number | TimingUnit,
@@ -202,9 +205,10 @@ export function StrategyPanel({
       const list = [...prev[channel]];
       const entry = { ...list[index] };
       if (field === "value") {
-        entry.value = typeof value === "number" ? value : entry.value;
+        const nextValue = typeof value === "number" ? value : entry.value;
+        entry.value = Math.max(1, Math.min(8, nextValue));
       } else {
-        entry.unit = value as TimingUnit;
+        entry.unit = "weeks";
       }
       list[index] = entry;
       return { ...prev, [channel]: list };
@@ -235,7 +239,17 @@ export function StrategyPanel({
             <div className="flex items-center justify-between">
               <label className="text-slate-600">Simulation Length</label>
               <span className="text-blue-600">
-                {config.steps} weeks · {Math.floor(config.steps / 52)} years {Math.round((config.steps % 52) / 4)} months
+                {(() => {
+                  const years = Math.floor(config.steps / 52);
+                  const remainderWeeks = config.steps % 52;
+                  let months = Math.round((remainderWeeks / 52) * 12);
+                  let displayYears = years;
+                  if (months === 12) {
+                    displayYears += 1;
+                    months = 0;
+                  }
+                  return `${config.steps} weeks · ${displayYears} years ${months} months`;
+                })()}
               </span>
             </div>
             <input
@@ -282,8 +296,8 @@ export function StrategyPanel({
           </div>
 
           <div className="mb-6 bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <label className="block text-slate-600 mb-3">Select Reminder Channels</label>
-            <div className="grid grid-cols-4 gap-4">
+              <label className="block text-slate-600 mb-3">Select Reminder Channels</label>
+            <div className="grid grid-cols-2 gap-4">
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -301,24 +315,6 @@ export function StrategyPanel({
                   className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                 />
                 <span className="ml-2 text-slate-700">Letter</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={channelSMS}
-                  onChange={(e) => setChannelSMS(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span className="ml-2 text-slate-700">SMS</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={channelWarningLetter}
-                  onChange={(e) => setChannelWarningLetter(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span className="ml-2 text-slate-700">Warning Letter</span>
               </label>
             </div>
           </div>
@@ -372,25 +368,14 @@ export function StrategyPanel({
                         <input
                           type="number"
                           min="1"
-                          max="12"
+                          max="8"
                           value={timing.value}
                           onChange={(e) =>
                             updateChannelTiming("email", index, "value", parseInt(e.target.value) || 1)
                           }
                           className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
                         />
-                        <select
-                          value={timing.unit}
-                          onChange={(e) =>
-                            updateChannelTiming("email", index, "unit", e.target.value as TimingUnit)
-                          }
-                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
-                        >
-                          <option value="days">days</option>
-                          <option value="weeks">weeks</option>
-                          <option value="months">months</option>
-                        </select>
-                        <span className="text-slate-500 text-sm">before deadline</span>
+                        <span className="text-slate-500 text-sm">weeks before deadline</span>
                       </div>
                     ))}
                   </div>
@@ -446,25 +431,14 @@ export function StrategyPanel({
                         <input
                           type="number"
                           min="1"
-                          max="12"
+                          max="8"
                           value={timing.value}
                           onChange={(e) =>
                             updateChannelTiming("letter", index, "value", parseInt(e.target.value) || 1)
                           }
                           className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
                         />
-                        <select
-                          value={timing.unit}
-                          onChange={(e) =>
-                            updateChannelTiming("letter", index, "unit", e.target.value as TimingUnit)
-                          }
-                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
-                        >
-                          <option value="days">days</option>
-                          <option value="weeks">weeks</option>
-                          <option value="months">months</option>
-                        </select>
-                        <span className="text-slate-500 text-sm">before deadline</span>
+                        <span className="text-slate-500 text-sm">weeks before deadline</span>
                       </div>
                     ))}
                   </div>
@@ -472,133 +446,6 @@ export function StrategyPanel({
               </div>
             )}
 
-            {channelSMS && (
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="flex items-center mb-4">
-                  <span className="text-slate-900 font-medium">SMS Configuration</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-slate-600 text-sm mb-2">Frequency</label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="4"
-                      step="1"
-                      value={channelFrequency.sms}
-                      onChange={(e) => handleChannelFrequencyChange("sms", parseInt(e.target.value) || 1)}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                      style={{
-                        background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
-                          ((channelFrequency.sms - 1) / 3) * 100
-                        }%, #e2e8f0 ${((channelFrequency.sms - 1) / 3) * 100}%, #e2e8f0 100%)`,
-                      }}
-                    />
-                    <div className="text-slate-600 text-sm mt-1">{channelFrequency.sms} times</div>
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={channelCost.sms}
-                      onChange={(e) => setChannelCost({ ...channelCost, sms: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
-                  <div className="space-y-2">
-                    {channelTimings.sms.map((timing, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={timing.value}
-                          onChange={(e) =>
-                            updateChannelTiming("sms", index, "value", parseInt(e.target.value) || 1)
-                          }
-                          className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
-                        />
-                        <select
-                          value={timing.unit}
-                          onChange={(e) =>
-                            updateChannelTiming("sms", index, "unit", e.target.value as TimingUnit)
-                          }
-                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
-                        >
-                          <option value="days">days</option>
-                          <option value="weeks">weeks</option>
-                          <option value="months">months</option>
-                        </select>
-                        <span className="text-slate-500 text-sm">before deadline</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {channelWarningLetter && (
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="flex items-center mb-4">
-                  <span className="text-slate-900 font-medium">Warning Letter Configuration</span>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-slate-600 text-sm mb-2">Cost per Unit (€)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={channelCost.warningLetter}
-                    onChange={(e) =>
-                      updateReminderChannelCost("warningLetter", parseFloat(e.target.value) || 0)
-                    }
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
-                  />
-                </div>
-
-                <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <div className="text-slate-600 text-sm mb-2">Timing Configuration</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="12"
-                      value={warningLetterTiming.value}
-                      onChange={(e) =>
-                        setWarningLetterTiming({
-                          ...warningLetterTiming,
-                          value: parseInt(e.target.value) || 1,
-                        })
-                      }
-                      className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
-                    />
-                    <select
-                      value={warningLetterTiming.unit}
-                      onChange={(e) =>
-                        setWarningLetterTiming({
-                          ...warningLetterTiming,
-                          unit: e.target.value as TimingUnit,
-                        })
-                      }
-                      className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700"
-                    >
-                      <option value="days">days</option>
-                      <option value="weeks">weeks</option>
-                      <option value="months">months</option>
-                    </select>
-                    <span className="text-slate-500 text-sm">before deadline</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -786,6 +633,12 @@ export function StrategyPanel({
                         setAuditHours((prev) => ({ ...prev, [type]: next }));
                         const cost = computeAuditCost(type, next, auditHourPrice[type]);
                         updateAuditType(type, "cost", cost);
+                        updateConfig({
+                          audit_hours: {
+                            ...config.audit_hours,
+                            [type]: next,
+                          },
+                        });
                       }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
@@ -802,6 +655,12 @@ export function StrategyPanel({
                         setAuditHourPrice((prev) => ({ ...prev, [type]: next }));
                         const cost = computeAuditCost(type, auditHours[type], next);
                         updateAuditType(type, "cost", cost);
+                        updateConfig({
+                          audit_hour_price: {
+                            ...config.audit_hour_price,
+                            [type]: next,
+                          },
+                        });
                       }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
@@ -877,6 +736,39 @@ export function StrategyPanel({
 
       <div className="mt-8 flex justify-end">
         <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={multiRunEnabled}
+                onChange={(e) =>
+                  updateConfig({
+                    n_runs: e.target.checked ? Math.max(2, runCount) : 1,
+                  })
+                }
+                className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+              />
+              Run multiple simulations
+            </label>
+            {multiRunEnabled && (
+              <div className="flex items-center gap-2">
+                <span>Runs:</span>
+                <input
+                  type="number"
+                  min="2"
+                  max="50"
+                  step="1"
+                  value={runCount}
+                  onChange={(e) =>
+                    updateConfig({
+                      n_runs: Math.max(2, Math.min(50, parseInt(e.target.value, 10) || 2)),
+                    })
+                  }
+                  className="w-20 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
+                />
+              </div>
+            )}
+          </div>
           {isRunning && progress && progress.total > 0 && (
             <div className="w-80">
               <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
@@ -894,12 +786,6 @@ export function StrategyPanel({
             </div>
           )}
           <div className="flex items-center gap-4">
-            <div className="text-sm text-slate-500">
-              Estimated runtime:{" "}
-              <span className="text-slate-900">
-                {estimatedRuntimeMs !== null ? `${(estimatedRuntimeMs / 1000).toFixed(2)}s` : "—"}
-              </span>
-            </div>
             {isRunning && (
               <button
                 onClick={onInterrupt}

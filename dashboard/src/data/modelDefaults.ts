@@ -26,7 +26,7 @@ const computeSizeSharesFromSectors = (selected: SectorKey[]) => {
 };
 
 export const defaultModelConfig: ModelConfig = {
-  N: 1000,
+  N: 10000,
   size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors_individual as SectorKey[]),
   age_shares: {
     Young: 0.57,
@@ -55,6 +55,16 @@ export const defaultModelConfig: ModelConfig = {
     Standard: { effect: 0.9, cost: 775.0 },
     Deep: { effect: 1.8, cost: 1570.0 },
   },
+  audit_hours: {
+    Light: Math.max(0, Math.round(500.0 / 20.11)),
+    Standard: Math.max(0, Math.round(775.0 / 20.11)),
+    Deep: 78,
+  },
+  audit_hour_price: {
+    Light: 20.11,
+    Standard: 20.11,
+    Deep: 20.11,
+  },
   channel_effects: {
     physical_letter: 0.003,
     email: 0.008,
@@ -65,6 +75,13 @@ export const defaultModelConfig: ModelConfig = {
     physical_letter: 0.85,
     warning_letter: 20.96,
   },
+  communication_schedule: {
+    8: ["physical_letter", "email"],
+    6: ["email"],
+    2: ["physical_letter"],
+    1: ["email"],
+  },
+  n_runs: 1,
   tax_gap_target_rate: 0.05,
   noncompliance_target_rate: 0.3,
   calibrate_baseline: true,

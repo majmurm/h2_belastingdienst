@@ -26,6 +26,18 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
 
   const strategyA = useMemo(() => runs.find(r => r.id === strategyAId), [runs, strategyAId]);
   const strategyB = useMemo(() => runs.find(r => r.id === strategyBId), [runs, strategyBId]);
+  const reminderLabel = (channel: string) => {
+    switch (channel) {
+      case "email":
+        return "Email";
+      case "physical_letter":
+        return "Physical Letter";
+      case "warning_letter":
+        return "Warning Letter";
+      default:
+        return channel.replace(/_/g, " ");
+    }
+  };
 
   useEffect(() => {
     if (!strategyAId && fallbackIds[0]) {
@@ -52,27 +64,34 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
     },
   ];
 
-  const deltaMeanData = [
+  const changeData = [
     {
-      metric: "Delta Mean",
+      metric: "Change",
       strategyA: strategyA.summary.deltaMean,
       strategyB: strategyB.summary.deltaMean,
     },
   ];
+
+  const taxGapReductionLabel = (value: number, pct?: number) => {
+    const pctText = typeof pct === "number" && Number.isFinite(pct) ? ` (${pct.toFixed(1)}%)` : "";
+    return `${formatCurrency(value)}${pctText}`;
+  };
 
   const financialData = [
     {
       metric: "Tax Gap Reduction",
       strategyA: strategyA.summary.taxGapReduction,
       strategyB: strategyB.summary.taxGapReduction,
+      strategyAPct: strategyA.summary.taxGapReductionPct,
+      strategyBPct: strategyB.summary.taxGapReductionPct,
     },
     {
-      metric: "Total Cost",
+      metric: "Estimated Cost",
       strategyA: strategyA.summary.totalCost,
       strategyB: strategyB.summary.totalCost,
     },
     {
-      metric: "Net Benefit",
+      metric: "Estimated Net Benefit",
       strategyA: strategyA.summary.netBenefit,
       strategyB: strategyB.summary.netBenefit,
     },
@@ -109,7 +128,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
           >
             {runs.map((run) => (
               <option key={run.id} value={run.id}>
-                {run.id} - {run.timestamp}
+                {run.displayName ?? run.id} - {run.timestamp}
               </option>
             ))}
           </select>
@@ -135,10 +154,6 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                   <span>Steps:</span>
                   <span className="text-slate-900">{strategyA.config.steps} weeks</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>C target / kappa:</span>
-                  <span className="text-slate-900">{strategyA.config.C_target.toFixed(3)} / {strategyA.config.kappa}</span>
-                </div>
               </div>
 
               <div className="text-slate-700 font-medium">Calendar</div>
@@ -157,30 +172,45 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 </div>
               </div>
 
-              <div className="text-slate-700 font-medium">Audit Types</div>
+              <div className="text-slate-700 font-medium">Audit Hours & FTE Price</div>
               <div className="space-y-2">
-                {Object.entries(strategyA.config.audit_types).map(([key, value]) => (
+                {Object.entries(strategyA.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
                     <span>{key}:</span>
-                    <span className="text-slate-900">effect {value.effect.toFixed(2)} · €{value.cost.toFixed(0)}</span>
+                    <span className="text-slate-900">
+                      {strategyA.config.audit_hours?.[key as keyof typeof strategyA.config.audit_hours] ?? "—"}h · €
+                      {strategyA.config.audit_hour_price?.[key as keyof typeof strategyA.config.audit_hour_price] ?? "—"}
+                    </span>
                   </div>
                 ))}
               </div>
 
-              <div className="text-slate-700 font-medium">Channels</div>
+              <div className="text-slate-700 font-medium">Reminders (Weeks Before Deadline)</div>
               <div className="space-y-2">
-                {Object.entries(strategyA.config.channel_effects).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span>{key}:</span>
-                    <span className="text-slate-900">effect {value.toFixed(3)} · €{strategyA.config.intervention_costs[key as keyof typeof strategyA.config.intervention_costs].toFixed(2)}</span>
-                  </div>
-                ))}
+                {Object.entries(strategyA.config.communication_schedule ?? {}).length === 0 ? (
+                  <div className="text-slate-500">No reminders configured.</div>
+                ) : (
+                  Object.entries(strategyA.config.communication_schedule ?? {})
+                    .sort(([a], [b]) => Number(b) - Number(a))
+                    .map(([week, channels]) => (
+                      <div key={week} className="flex justify-between">
+                        <span>{week} weeks:</span>
+                        <span className="text-slate-900">
+                          {(channels as string[]).map(reminderLabel).join(", ")}
+                        </span>
+                      </div>
+                    ))
+                )}
               </div>
 
-              <div className="text-slate-700 font-medium">Decay</div>
-              <div className="flex justify-between">
-                <span>Weekly decay:</span>
-                <span className="text-slate-900">{strategyA.config.decay_factor.toFixed(5)}</span>
+              <div className="text-slate-700 font-medium">Communication Cost per Unit</div>
+              <div className="space-y-2">
+                {Object.entries(strategyA.config.intervention_costs).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span>{reminderLabel(key)}:</span>
+                    <span className="text-slate-900">€{value.toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -198,7 +228,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
           >
             {runs.map((run) => (
               <option key={run.id} value={run.id}>
-                {run.id} - {run.timestamp}
+                {run.displayName ?? run.id} - {run.timestamp}
               </option>
             ))}
           </select>
@@ -224,10 +254,6 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                   <span>Steps:</span>
                   <span className="text-slate-900">{strategyB.config.steps} weeks</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>C target / kappa:</span>
-                  <span className="text-slate-900">{strategyB.config.C_target.toFixed(3)} / {strategyB.config.kappa}</span>
-                </div>
               </div>
 
               <div className="text-slate-700 font-medium">Calendar</div>
@@ -246,30 +272,45 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 </div>
               </div>
 
-              <div className="text-slate-700 font-medium">Audit Types</div>
+              <div className="text-slate-700 font-medium">Audit Hours & FTE Price</div>
               <div className="space-y-2">
-                {Object.entries(strategyB.config.audit_types).map(([key, value]) => (
+                {Object.entries(strategyB.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
                     <span>{key}:</span>
-                    <span className="text-slate-900">effect {value.effect.toFixed(2)} · €{value.cost.toFixed(0)}</span>
+                    <span className="text-slate-900">
+                      {strategyB.config.audit_hours?.[key as keyof typeof strategyB.config.audit_hours] ?? "—"}h · €
+                      {strategyB.config.audit_hour_price?.[key as keyof typeof strategyB.config.audit_hour_price] ?? "—"}
+                    </span>
                   </div>
                 ))}
               </div>
 
-              <div className="text-slate-700 font-medium">Channels</div>
+              <div className="text-slate-700 font-medium">Reminders (Weeks Before Deadline)</div>
               <div className="space-y-2">
-                {Object.entries(strategyB.config.channel_effects).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span>{key}:</span>
-                    <span className="text-slate-900">effect {value.toFixed(3)} · €{strategyB.config.intervention_costs[key as keyof typeof strategyB.config.intervention_costs].toFixed(2)}</span>
-                  </div>
-                ))}
+                {Object.entries(strategyB.config.communication_schedule ?? {}).length === 0 ? (
+                  <div className="text-slate-500">No reminders configured.</div>
+                ) : (
+                  Object.entries(strategyB.config.communication_schedule ?? {})
+                    .sort(([a], [b]) => Number(b) - Number(a))
+                    .map(([week, channels]) => (
+                      <div key={week} className="flex justify-between">
+                        <span>{week} weeks:</span>
+                        <span className="text-slate-900">
+                          {(channels as string[]).map(reminderLabel).join(", ")}
+                        </span>
+                      </div>
+                    ))
+                )}
               </div>
 
-              <div className="text-slate-700 font-medium">Decay</div>
-              <div className="flex justify-between">
-                <span>Weekly decay:</span>
-                <span className="text-slate-900">{strategyB.config.decay_factor.toFixed(5)}</span>
+              <div className="text-slate-700 font-medium">Communication Cost per Unit</div>
+              <div className="space-y-2">
+                {Object.entries(strategyB.config.intervention_costs).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span>{reminderLabel(key)}:</span>
+                    <span className="text-slate-900">€{value.toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -295,7 +336,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
         </div>
 
         <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-slate-900 text-base font-medium mb-2">Delta Mean</h3>
+          <h3 className="text-slate-900 text-base font-medium mb-2">Change</h3>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="text-blue-600">{strategyA.summary.deltaMean.toFixed(3)}</span>
             <span className="text-slate-400">vs</span>
@@ -313,9 +354,13 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
         <div className="bg-white rounded-lg border border-slate-200 p-5">
           <h3 className="text-slate-900 text-base font-medium mb-2">Tax Gap Reduction</h3>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-blue-600">{formatCurrency(strategyA.summary.taxGapReduction)}</span>
+            <span className="text-blue-600">
+              {taxGapReductionLabel(strategyA.summary.taxGapReduction, strategyA.summary.taxGapReductionPct)}
+            </span>
             <span className="text-slate-400">vs</span>
-            <span className="text-orange-600">{formatCurrency(strategyB.summary.taxGapReduction)}</span>
+            <span className="text-orange-600">
+              {taxGapReductionLabel(strategyB.summary.taxGapReduction, strategyB.summary.taxGapReductionPct)}
+            </span>
           </div>
           <div className={`${gapDiff > 0 ? 'text-blue-600' : gapDiff < 0 ? 'text-orange-600' : 'text-slate-500'}`}>
             {gapDiff > 0 
@@ -346,9 +391,9 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
             </ResponsiveContainer>
           </div>
           <div>
-            <h4 className="text-slate-700 font-medium mb-2">Delta Mean</h4>
+            <h4 className="text-slate-700 font-medium mb-2">Change</h4>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={deltaMeanData}>
+              <BarChart data={changeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
@@ -367,9 +412,17 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               <div key={row.metric} className="bg-slate-50 border border-slate-200 rounded-md p-3">
                 <div className="text-slate-500">{row.metric}</div>
                 <div className="text-slate-900 mt-1">
-                  A: {row.metric === "ROI Ratio" ? row.strategyA.toFixed(2) : formatCurrency(row.strategyA)}
+                  A: {row.metric === "ROI Ratio"
+                    ? row.strategyA.toFixed(2)
+                    : row.metric === "Tax Gap Reduction"
+                    ? taxGapReductionLabel(row.strategyA, row.strategyAPct)
+                    : formatCurrency(row.strategyA)}
                   {" · "}
-                  B: {row.metric === "ROI Ratio" ? row.strategyB.toFixed(2) : formatCurrency(row.strategyB)}
+                  B: {row.metric === "ROI Ratio"
+                    ? row.strategyB.toFixed(2)
+                    : row.metric === "Tax Gap Reduction"
+                    ? taxGapReductionLabel(row.strategyB, row.strategyBPct)
+                    : formatCurrency(row.strategyB)}
                 </div>
               </div>
             ))}

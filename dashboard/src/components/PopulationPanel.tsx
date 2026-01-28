@@ -29,10 +29,16 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
     age: false,
   });
   const [previousSelection, setPreviousSelection] = useState<SectorKey[]>(config.selected_sectors);
-  const REAL_LIFE_POPULATION = 1630865;
+  const TOTAL_REAL_LIFE_POPULATION = 1630865;
+  const selectedSectorShare = config.selected_sectors.reduce((sum, sector) => {
+    const share = (sectorDefaults.sector_shares as Record<SectorKey, number>)[sector] ?? 0;
+    return sum + share;
+  }, 0);
+  const effectiveSectorShare = selectedSectorShare > 0 ? selectedSectorShare : 1;
+  const realLifePopulation = Math.round(TOTAL_REAL_LIFE_POPULATION * effectiveSectorShare);
   const initialPercent = Math.max(
     0.1,
-    Math.min(5, Math.round((config.N / REAL_LIFE_POPULATION) * 100 * 10) / 10),
+    Math.min(5, Math.round((config.N / Math.max(1, realLifePopulation)) * 100 * 10) / 10),
   );
   const [agentPopulationPercentage, setAgentPopulationPercentage] = useState(initialPercent);
 
@@ -41,11 +47,11 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
   };
 
   useEffect(() => {
-    const nextN = Math.max(1, Math.round((REAL_LIFE_POPULATION * agentPopulationPercentage) / 100));
+    const nextN = Math.max(1, Math.round((realLifePopulation * agentPopulationPercentage) / 100));
     if (config.N !== nextN) {
       updateConfig({ N: nextN });
     }
-  }, [agentPopulationPercentage, REAL_LIFE_POPULATION, config.N]);
+  }, [agentPopulationPercentage, realLifePopulation, config.N]);
 
   const isAllSelected = individualSectors.every((sector) =>
     config.selected_sectors.includes(sector),
@@ -127,8 +133,8 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
   };
 
   const agentPopulationSize = useMemo(
-    () => Math.round((REAL_LIFE_POPULATION * agentPopulationPercentage) / 100),
-    [agentPopulationPercentage, REAL_LIFE_POPULATION],
+    () => Math.round((realLifePopulation * agentPopulationPercentage) / 100),
+    [agentPopulationPercentage, realLifePopulation],
   );
 
   const sizeTotal = Object.values(config.size_shares).reduce((sum, val) => sum + val, 0);
@@ -177,6 +183,104 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
+            <h3 className="text-slate-900 text-md font-medium">Business Sectors</h3>
+            <Tooltip content="Select sectors to compute sector-weighted size shares and run sector-specific reporting.">
+              <Info className="w-4 h-4 text-slate-400 cursor-help" />
+            </Tooltip>
+          </div>
+          <div className="space-y-4">
+            {[selectAllLabel].map((sector) => {
+              const checked = isAllSelected;
+              return (
+                <label
+                  key={sector}
+                  className={`flex items-center justify-between gap-3 p-4 border rounded-md ${
+                    checked
+                      ? "bg-blue-100 border-blue-300 text-blue-900"
+                      : "bg-blue-50 border-blue-200 text-blue-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        if (checked) {
+                          setPreviousSelection(config.selected_sectors);
+                          updateConfig({
+                            selected_sectors: [],
+                            sector_shares: computeSectorShares([]),
+                          });
+                          return;
+                        }
+                        const next = [...individualSectors];
+                        const sectorShares = computeSectorShares(next);
+                        const nextConfig: Partial<ModelConfig> = {
+                          selected_sectors: next,
+                          sector_shares: sectorShares,
+                        };
+                        if (distributionType === "reallife") {
+                          nextConfig.size_shares = computeSizeSharesFromSectors(next);
+                        }
+                        updateConfig(nextConfig);
+                      }}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    <span className="text-sm font-medium">All sectors</span>
+                  </div>
+                  <span className="text-xs">100%</span>
+                </label>
+              );
+            })}
+
+            <div className="grid grid-cols-2 gap-4">
+              {sectorList.map((sector) => {
+                const checked = config.selected_sectors.includes(sector);
+                const sectorShare = config.sector_shares[sector as SectorKey] ?? 0;
+                return (
+                  <label
+                    key={sector}
+                    className="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-md bg-slate-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? config.selected_sectors.filter((item) => item !== sector)
+                            : [...config.selected_sectors, sector];
+
+                          if (next.length === 0) return;
+
+                          const sectorShares = computeSectorShares(next);
+                          const nextConfig: Partial<ModelConfig> = {
+                            selected_sectors: next,
+                            sector_shares: sectorShares,
+                          };
+
+                          if (distributionType === "reallife") {
+                            nextConfig.size_shares = computeSizeSharesFromSectors(next);
+                          }
+
+                          updateConfig(nextConfig);
+                        }}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      <span className="text-slate-700 text-sm">{sector}</span>
+                    </div>
+                    <span className="text-slate-500 text-xs">
+                      {(sectorShare * 100).toFixed(1)}%
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-slate-200 p-8">
+          <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Population Size</h3>
             <Tooltip content="Select the number of agents to simulate based on a real-life reference population.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
@@ -187,11 +291,11 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
             <div className="flex items-center justify-between mb-2">
               <span className="text-blue-900 font-medium">Real-life Population Size</span>
               <span className="text-blue-900 font-bold text-lg">
-                {REAL_LIFE_POPULATION.toLocaleString()} enterprises
+                {realLifePopulation.toLocaleString()} enterprises
               </span>
             </div>
             <p className="text-blue-700 text-sm">
-              Reference population used to compute agent sampling.
+              Reference population based on selected business sectors.
             </p>
           </div>
 
@@ -210,7 +314,7 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 const percent = parseFloat(e.target.value);
                 if (Number.isNaN(percent)) return;
                 setAgentPopulationPercentage(percent);
-                updateConfig({ N: Math.max(1, Math.round((REAL_LIFE_POPULATION * percent) / 100)) });
+                updateConfig({ N: Math.max(1, Math.round((realLifePopulation * percent) / 100)) });
               }}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               style={{
@@ -393,104 +497,6 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
                 </CollapsibleContent>
               </div>
             </Collapsible>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-8">
-          <div className="flex items-center gap-2 mb-6">
-            <h3 className="text-slate-900 text-md font-medium">Business Sectors</h3>
-            <Tooltip content="Select sectors to compute sector-weighted size shares and run sector-specific reporting.">
-              <Info className="w-4 h-4 text-slate-400 cursor-help" />
-            </Tooltip>
-          </div>
-          <div className="space-y-4">
-            {[selectAllLabel].map((sector) => {
-              const checked = isAllSelected;
-              return (
-                <label
-                  key={sector}
-                  className={`flex items-center justify-between gap-3 p-4 border rounded-md ${
-                    checked
-                      ? "bg-blue-100 border-blue-300 text-blue-900"
-                      : "bg-blue-50 border-blue-200 text-blue-900"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        if (checked) {
-                          setPreviousSelection(config.selected_sectors);
-                          updateConfig({
-                            selected_sectors: [],
-                            sector_shares: computeSectorShares([]),
-                          });
-                          return;
-                        }
-                        const next = [...individualSectors];
-                        const sectorShares = computeSectorShares(next);
-                        const nextConfig: Partial<ModelConfig> = {
-                          selected_sectors: next,
-                          sector_shares: sectorShares,
-                        };
-                        if (distributionType === "reallife") {
-                          nextConfig.size_shares = computeSizeSharesFromSectors(next);
-                        }
-                        updateConfig(nextConfig);
-                      }}
-                      className="h-4 w-4 rounded border-slate-300"
-                    />
-                    <span className="text-sm font-medium">All sectors</span>
-                  </div>
-                  <span className="text-xs">100%</span>
-                </label>
-              );
-            })}
-
-            <div className="grid grid-cols-2 gap-4">
-              {sectorList.map((sector) => {
-                const checked = config.selected_sectors.includes(sector);
-                const sectorShare = config.sector_shares[sector as SectorKey] ?? 0;
-                return (
-                  <label
-                    key={sector}
-                    className="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-md bg-slate-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const next = checked
-                            ? config.selected_sectors.filter((item) => item !== sector)
-                            : [...config.selected_sectors, sector];
-
-                          if (next.length === 0) return;
-
-                          const sectorShares = computeSectorShares(next);
-                          const nextConfig: Partial<ModelConfig> = {
-                            selected_sectors: next,
-                            sector_shares: sectorShares,
-                          };
-
-                          if (distributionType === "reallife") {
-                            nextConfig.size_shares = computeSizeSharesFromSectors(next);
-                          }
-
-                          updateConfig(nextConfig);
-                        }}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      <span className="text-slate-700 text-sm">{sector}</span>
-                    </div>
-                    <span className="text-slate-500 text-xs">
-                      {(sectorShare * 100).toFixed(1)}%
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
           </div>
         </div>
 
