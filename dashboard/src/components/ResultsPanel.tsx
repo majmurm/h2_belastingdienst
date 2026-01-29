@@ -44,6 +44,11 @@ const formatCurrency = (value: number) =>
     value,
   );
 
+const formatCurrencyTwoDecimals = (value: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+    value,
+  );
+
 export function ResultsPanel({
   results,
   config,
@@ -456,19 +461,19 @@ export function ResultsPanel({
                       <div className="flex justify-between">
                         <span className="text-slate-600">Light</span>
                         <span className="text-slate-900">
-                          {auditHours.Light}h × {formatCurrency(auditHourPrice.Light)}
+                          {auditHours.Light}h × {formatCurrencyTwoDecimals(auditHourPrice.Light)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Standard</span>
                         <span className="text-slate-900">
-                          {auditHours.Standard}h × {formatCurrency(auditHourPrice.Standard)}
+                          {auditHours.Standard}h × {formatCurrencyTwoDecimals(auditHourPrice.Standard)}
                         </span>
                       </div>
                       <div className="flex justify-between mb-3">
                         <span className="text-slate-600">Deep</span>
                         <span className="text-slate-900">
-                          {auditHours.Deep}h × {formatCurrency(auditHourPrice.Deep)}
+                          {auditHours.Deep}h × {formatCurrencyTwoDecimals(auditHourPrice.Deep)}
                         </span>
                       </div>
                     </div>
@@ -476,65 +481,27 @@ export function ResultsPanel({
                   <div>
                     <h4 className="text-slate-700 font-medium mb-2">Communication Cost per Unit</h4>
                     <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Email</span>
-                        <span className="text-slate-900">{formatCurrency(selectedConfig.intervention_costs.email)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Physical Letter</span>
-                        <span className="text-slate-900">
-                          {formatCurrency(selectedConfig.intervention_costs.physical_letter)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between mb-3">
-                        <span className="text-slate-600">Warning Letter</span>
-                        <span className="text-slate-900">
-                          {formatCurrency(selectedConfig.intervention_costs.warning_letter)}
-                        </span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Email</span>
+                      <span className="text-slate-900">{formatCurrencyTwoDecimals(selectedConfig.intervention_costs.email)}</span>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <div className="flex items-center justify-between bg-slate-50 rounded-md px-4 py-3 text-sm">
-                    <span className="text-slate-600">Estimated Cost (All Interventions)</span>
-                    <span className="text-slate-900">
-                      {results.summary ? formatCurrency(results.summary.total_cost) : "—"}
-                    </span>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Physical Letter</span>
+                      <span className="text-slate-900">
+                        {formatCurrencyTwoDecimals(selectedConfig.intervention_costs.physical_letter)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between mb-3">
+                      <span className="text-slate-600">Warning Letter</span>
+                      <span className="text-slate-900">
+                        {formatCurrencyTwoDecimals(selectedConfig.intervention_costs.warning_letter)}
+                      </span>
+                    </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </details>
-          </div>
-
-          <div className="mb-8">
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-slate-900 text-md font-medium mb-4">
-                Annual Tax Gap by Group
-              </h3>
-              <p className="text-slate-600 mb-4">
-                Estimated annual revenue loss from non-compliance per enterprise group.
-              </p>
-              <div className="grid grid-cols-3 gap-6">
-                {["Micro", "Small", "Medium"].map((size) => (
-                  <div key={size} className="space-y-2">
-                    <h4 className="text-slate-700 font-medium text-sm mb-3">{size}</h4>
-                    {["Young", "Mature", "Old"].map((age) => {
-                      const key = `${size}-${age}` as GroupKey;
-                      const entry = groupTaxGap[key];
-                      return (
-                        <div key={key} className="flex justify-between items-center p-2.5 bg-slate-50 rounded">
-                          <span className="text-slate-600 text-sm">{age}</span>
-                          <span className="text-slate-900 text-sm font-medium">
-                            {entry ? formatCurrency(entry.gap) : "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="mb-8">

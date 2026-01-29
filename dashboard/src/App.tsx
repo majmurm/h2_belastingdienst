@@ -40,12 +40,7 @@ export default function App() {
           netBenefit: run.summary.netBenefit ?? 0,
           roiRatio: run.summary.roiRatio ?? 0,
         },
-        results: {
-          ...run.results,
-          final: run.results?.final
-            ? { ...run.results.final, network_gif: undefined }
-            : run.results?.final,
-        },
+        results: run.results,
         config: {
           ...defaultModelConfig,
           ...run.config,
@@ -62,10 +57,7 @@ export default function App() {
     const steps = results.steps ?? [];
     const maxSteps = 60;
     if (steps.length <= maxSteps) {
-      return {
-        ...results,
-        final: { ...results.final, network_gif: undefined },
-      };
+      return results;
     }
 
     const indices = new Set<number>([0, steps.length - 1]);
@@ -79,7 +71,7 @@ export default function App() {
     return {
       ...results,
       steps: reducedSteps,
-      final: { ...results.final, network_gif: undefined },
+      final: results.final,
     };
   };
 
@@ -144,7 +136,7 @@ export default function App() {
         id: runId,
         displayName: runId,
         timestamp: timestampStr,
-        config: results.config,
+        config: modelConfig,
         results: resultsForHistory,
         summary: {
           initialMean,
