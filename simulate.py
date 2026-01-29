@@ -95,7 +95,8 @@ def run_simulation(
         decay_factor=0.00005,
         seed=seed_sim,
     )
-
+    
+    
     # Run Simulation
     for _ in range(T_sim):
         model.step()

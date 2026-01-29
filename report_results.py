@@ -66,11 +66,11 @@ def capture_state(model_instance):
 
 
 # Number of Agents
-N = 1000
+N = 10000
 
 # Demographics
 size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
-age_shares = {"Young": 0.38, "Mature": 0.24, "Old": 0.38}
+age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target = 0.693
@@ -116,15 +116,17 @@ audit_types = {
     "Deep": {
         "effect": 1.80,
         "cost": 4680,
-    },  # book audit
+    },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
+    # official source Belastingdienst: Scale 8, step 5 EUR3643 --> 1 FTE hr = EUR 21.07
+    # according to Cees sources: EUR 60
 }
 
 
 # Define Costs (in EUR)
 intervention_costs = {
-    "email": 0.39,  
-    "physical_letter": 0.65,  
-    "warning_letter": 196.84, 
+    "email": 0.39,  # Minimal system cost (14.4 FTE hours * EUR60 + EUR3000 one-off system provider cost + EUR8 cost for 10k emails = EUR3872 --> EUR3872 / 10k agents = EUR0.39 per agent per eMail)
+    "physical_letter": 0.65,  # Print + Postage (32*1.2 (overhead) FTE * EUR60 + EUR400 one-off system provider cost + EUR3000 cost for 10k letters = EUR6504 --> EUR6504 / 10k agents = EUR0.65 per agent per letter  )
+    "warning_letter": 196.84,  # Letter (EUR16.84 + ~3hr FTE for hand delivery (60EUR) = 196.84) personalized letter: 14.4 FTE hours * EUR60 + EUR600 one-off system provider cost + EUR2.20 *100 agents = EUR1684 --> EUR1684 / 100 agents = EUR16.84 per agent per letter )
 }
 
 # 3. DEFINE THE SCHEDULE
@@ -188,36 +190,36 @@ print("Calibrated mean underpayment | noncompliant:", model.underpayment_mean_if
 initial_gap = report_tax_gap(model, "INITIAL (Step 0)")
 
 
-# Pre-calculate graph layout so nodes don't jump around in the animation
-print("Calculating network layout...")
-G = model.grid.G
-# Seed identical to model seed
-pos = nx.spring_layout(G, k=0.05, iterations=30, seed=42)
-# Storage for animation frames
-snapshots = []
-# Capture Initial State (Week 0)
-snapshots.append({"step": 0, "colors": capture_state(model)})
+# # Pre-calculate graph layout so nodes don't jump around in the animation
+# print("Calculating network layout...")
+# G = model.grid.G
+# # Seed identical to model seed
+# pos = nx.spring_layout(G, k=0.05, iterations=30, seed=42)
+# # Storage for animation frames
+# snapshots = []
+# # Capture Initial State (Week 0)
+# snapshots.append({"step": 0, "colors": capture_state(model)})
 
 
 # 2. Run Simulation
-T = 260  # time steps in weeks
+T = 208  # time steps in weeks
 
-# Calculate interval to get x FRAMES_WANTED frames + end state for GIF
-FRAMES_WANTED = 26
-snapshot_interval = max(1, int(T / FRAMES_WANTED))
+# # Calculate interval to get x FRAMES_WANTED frames + end state for GIF
+# FRAMES_WANTED = 26
+# snapshot_interval = max(1, int(T / FRAMES_WANTED))
 
 for t in range(1, 1 + T):
     model.step()
 
 
-# Capture state based on dynamic interval
-    if t % snapshot_interval == 0:
-        print(f"  ...Snapshotting week {t}")
-        snapshots.append({"step": t, "colors": capture_state(model)})
+# # Capture state based on dynamic interval
+#     if t % snapshot_interval == 0:
+#         print(f"  ...Snapshotting week {t}")
+#         snapshots.append({"step": t, "colors": capture_state(model)})
 
-# Ensure we always capture the very last step if missed
-if snapshots[-1]["step"] != T:
-    snapshots.append({"step": T, "colors": capture_state(model)})
+# # Ensure we always capture the very last step if missed
+# if snapshots[-1]["step"] != T:
+#     snapshots.append({"step": T, "colors": capture_state(model)})
 
 
 # 3. Final Reporting
@@ -331,85 +333,85 @@ plt.grid(True, linestyle=":", alpha=0.6)
 
 
 
-# 7. NETWORK ANIMATION (GIF) - FIXED VERSION
-print(f"\nGenerating Animation with {len(snapshots)} frames...")
+# # 7. NETWORK ANIMATION (GIF) - FIXED VERSION
+# print(f"\nGenerating Animation with {len(snapshots)} frames...")
 
-# Determine Color Scale
-all_props = [p for snap in snapshots for p in snap["colors"]]
-vmin = min(0.5, min(all_props)) if all_props else 0.0
-vmax = 1.0
+# # Determine Color Scale
+# all_props = [p for snap in snapshots for p in snap["colors"]]
+# vmin = min(0.5, min(all_props)) if all_props else 0.0
+# vmax = 1.0
 
-# Create a fixed normalization
-norm = Normalize(vmin=vmin, vmax=vmax)
-cmap = plt.cm.viridis
+# # Create a fixed normalization
+# norm = Normalize(vmin=vmin, vmax=vmax)
+# cmap = plt.cm.viridis
 
-# Pre-compute RGBA colors for all snapshots
-for snap in snapshots:
-    rgba = cmap(norm(snap["colors"]))
-    if hasattr(rgba, 'shape') and len(rgba.shape) == 2:
-        rgba[:, 3] = 0.9
-    snap["rgba_colors"] = rgba
+# # Pre-compute RGBA colors for all snapshots
+# for snap in snapshots:
+#     rgba = cmap(norm(snap["colors"]))
+#     if hasattr(rgba, 'shape') and len(rgba.shape) == 2:
+#         rgba[:, 3] = 0.9
+#     snap["rgba_colors"] = rgba
 
-# Save each frame as a separate image
-import os
-os.makedirs("temp_frames", exist_ok=True)
+# # Save each frame as a separate image
+# import os
+# os.makedirs("temp_frames", exist_ok=True)
 
-for frame_idx, data in enumerate(snapshots):
-    # Create a fresh figure for each frame
-    fig = plt.figure(figsize=(14, 12), dpi=150)
-    gs = fig.add_gridspec(1, 2, width_ratios=[20, 1], wspace=0.05)
-    ax = fig.add_subplot(gs[0])
-    cax = fig.add_subplot(gs[1])
+# for frame_idx, data in enumerate(snapshots):
+#     # Create a fresh figure for each frame
+#     fig = plt.figure(figsize=(14, 12), dpi=150)
+#     gs = fig.add_gridspec(1, 2, width_ratios=[20, 1], wspace=0.05)
+#     ax = fig.add_subplot(gs[0])
+#     cax = fig.add_subplot(gs[1])
     
-    # Draw network
-    nx.draw_networkx_nodes(
-        G, pos,
-        node_size=20,
-        node_color=data["rgba_colors"],
-        ax=ax,
-        edgecolors='gray',
-        linewidths=0.5
-    )
-    nx.draw_networkx_edges(G, pos, alpha=0.1, ax=ax, width=0.5)
+#     # Draw network
+#     nx.draw_networkx_nodes(
+#         G, pos,
+#         node_size=20,
+#         node_color=data["rgba_colors"],
+#         ax=ax,
+#         edgecolors='gray',
+#         linewidths=0.5
+#     )
+#     nx.draw_networkx_edges(G, pos, alpha=0.1, ax=ax, width=0.5)
     
-    # Title
-    ax.set_title(f"Week {data['step']}", fontsize=14, fontweight='bold')
-    ax.axis('off')
+#     # Title
+#     ax.set_title(f"Week {data['step']}", fontsize=14, fontweight='bold')
+#     ax.axis('off')
     
-    # Colorbar (same for every frame)
-    from matplotlib.cm import ScalarMappable
-    sm = ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, cax=cax)
-    cbar.set_label(f"Compliance\nPropensity", rotation=270, labelpad=20, fontsize=10)
-    cbar.set_ticks([vmin, 0.7, 0.8, 0.9, vmax])
-    cbar.set_ticklabels([f'{vmin:.1f}', '0.7', '0.8', '0.9', f'{vmax:.1f}'])
+#     # Colorbar (same for every frame)
+#     from matplotlib.cm import ScalarMappable
+#     sm = ScalarMappable(cmap=cmap, norm=norm)
+#     sm.set_array([])
+#     cbar = fig.colorbar(sm, cax=cax)
+#     cbar.set_label(f"Compliance\nPropensity", rotation=270, labelpad=20, fontsize=10)
+#     cbar.set_ticks([vmin, 0.7, 0.8, 0.9, vmax])
+#     cbar.set_ticklabels([f'{vmin:.1f}', '0.7', '0.8', '0.9', f'{vmax:.1f}'])
     
-    # Save frame
-    plt.savefig(f"temp_frames/frame_{frame_idx:03d}.png", dpi=100, bbox_inches='tight')
-    plt.close(fig)
-    print(f"  Saved frame {frame_idx+1}/{len(snapshots)}")
+#     # Save frame
+#     plt.savefig(f"temp_frames/frame_{frame_idx:03d}.png", dpi=100, bbox_inches='tight')
+#     plt.close(fig)
+#     print(f"  Saved frame {frame_idx+1}/{len(snapshots)}")
 
-# Combine frames into GIF using PIL
-from PIL import Image
+# # Combine frames into GIF using PIL
+# from PIL import Image
 
-frames = []
-for frame_idx in range(len(snapshots)):
-    img = Image.open(f"temp_frames/frame_{frame_idx:03d}.png")
-    frames.append(img)
+# frames = []
+# for frame_idx in range(len(snapshots)):
+#     img = Image.open(f"temp_frames/frame_{frame_idx:03d}.png")
+#     frames.append(img)
 
-# Save as GIF
-filename = "network_evolution.gif"
-frames[0].save(
-    filename,
-    save_all=True,
-    append_images=frames[1:],
-    duration=500,  # ms per frame
-    loop=0
-)
+# # Save as GIF
+# filename = "network_evolution.gif"
+# frames[0].save(
+#     filename,
+#     save_all=True,
+#     append_images=frames[1:],
+#     duration=500,  # ms per frame
+#     loop=0
+# )
 
-# Clean up temp frames
-import shutil
-shutil.rmtree("temp_frames")
+# # Clean up temp frames
+# import shutil
+# shutil.rmtree("temp_frames")
 
-print(f"Success! Saved {filename}")
+# print(f"Success! Saved {filename}")
