@@ -312,7 +312,7 @@ def default_config() -> Dict[str, Any]:
     return {
         "N": 1000,
         "size_shares": _size_shares_for_sectors(SECTOR_LIST),
-        "age_shares": {"Young": 0.57, "Mature": 0.04, "Old": 0.39},
+        "age_shares": {"Young": 0.38, "Mature": 0.24, "Old": 0.38},
         "sector_shares": SECTOR_SHARES_DEFAULT,
         "selected_sectors": SECTOR_LIST,
         "C_target": 0.693,
@@ -330,10 +330,14 @@ def default_config() -> Dict[str, Any]:
             "Medium-Mature": 0.02,
             "Medium-Old": 0.02,
         },
-        "audit_types": {
-            "Light": {"effect": 0.45, "cost": 500.0},
-            "Standard": {"effect": 0.90, "cost": 775.0},
-            "Deep": {"effect": 1.80, "cost": 1570.0},
+        # Define 3 types of audits with different effects and costs
+        "audit_types" : {
+            "Light": {"effect": 0.90, "cost": 2340},  # IH profit return check
+            "Standard": {"effect": 0.90, "cost": 2340},  # corporate income tax return check
+            "Deep": {
+                "effect": 1.80,
+                "cost": 4680,
+            },  # book audit
         },
         "audit_hours": {
             "Light": max(0, round(500.0 / 20.11)),
@@ -350,10 +354,11 @@ def default_config() -> Dict[str, Any]:
             "email": 0.008,
             "warning_letter": 0.020,
         },
-        "intervention_costs": {
-            "email": 0.05,
-            "physical_letter": 0.85,
-            "warning_letter": 20.96,
+        # Define Costs (in EUR)
+        "intervention_costs" : {
+            "email": 0.39,  
+            "physical_letter": 0.65,  
+            "warning_letter": 196.84, 
         },
         "communication_schedule": {
             8: ["physical_letter", "email"],
