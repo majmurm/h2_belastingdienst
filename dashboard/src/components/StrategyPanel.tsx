@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import { Info, AlertCircle, RotateCcw, ChevronRight, Clock } from "lucide-react";
+import { Info, RotateCcw, ChevronRight, Clock } from "lucide-react";
 import { Tooltip } from "./Tooltip";
-import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey } from "../data/modelTypes";
+import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey, ChannelKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
 import styles from "./StrategyPanel.module.css";
 
@@ -46,16 +46,21 @@ export function StrategyPanel({
       Deep: 78,
     },
   );
+
+  // --- CHANNEL STATE MANAGEMENT ---
   const [channelEmail, setChannelEmail] = useState(true);
   const [channelLetter, setChannelLetter] = useState(false);
+  
   const [channelFrequency, setChannelFrequency] = useState({
     email: 1,
     letter: 1,
   });
+  
   const [channelCost, setChannelCost] = useState({
     email: config.intervention_costs.email,
     letter: config.intervention_costs.physical_letter,
   });
+
   const [channelTimings, setChannelTimings] = useState<{
     email: ChannelTiming[];
     letter: ChannelTiming[];
@@ -63,52 +68,127 @@ export function StrategyPanel({
     email: [{ value: 1, unit: "weeks" }],
     letter: [{ value: 1, unit: "weeks" }],
   });
+
+  // Warning Visit Week Input State
   const [warningVisitWeekInput, setWarningVisitWeekInput] = useState<string>(
     config.warning_visit_week ? String(config.warning_visit_week) : "",
   );
-  
+
   const multiRunEnabled = (config.n_runs ?? 1) > 1;
   const runCount = Math.max(1, config.n_runs ?? 1);
 
-  // --- ESTIMATED RUNTIME CALCULATION ---
-  const estimatedRuntimeLabel = useMemo(() => {
-    // 1. EDIT THESE PLACEHOLDERS TO MATCH YOUR SERVER PERFORMANCE
-    const COEFF_BASE_LATENCY = 800;       // Fixed overhead (startup time) in ms
-    const COEFF_PER_AGENT_STEP = 0.0015;  // Time per agent per step in ms (e.g. 0.0015)
-    const COEFF_GIF_GENERATION = 2500;    // Fixed cost to generate GIF in ms (if enabled)
-    const COEFF_GIF_PER_AGENT = 0.05;     // Extra GIF cost per agent (drawing nodes) in ms
+  // Helper to update main config
+  const updateConfig = (partial: Partial<ModelConfig>) => {
+    onConfigChange({ ...config, ...partial });
+  };
 
-    // 2. GET CURRENT PARAMS
+  // --- SYNC FUNCTION: UI State -> Model Config ---
+  // BUG FIX: Removed useCallback here so it always uses the FRESH 'config' state
+  const syncScheduleToConfig = (
+    useEmail: boolean,
+    useLetter: boolean,
+    timings: { email: ChannelTiming[]; letter: ChannelTiming[] }
+  ) => {
+    const newSchedule: Record<number, ChannelKey[]> = {};
+
+    const addToSchedule = (week: number, channel: ChannelKey) => {
+      const w = Math.round(week);
+      if (w <= 0) return;
+      if (!newSchedule[w]) newSchedule[w] = [];
+      if (!newSchedule[w].includes(channel)) {
+        newSchedule[w].push(channel);
+      }
+    };
+
+    if (useEmail) {
+      timings.email.forEach(t => addToSchedule(t.value, "email"));
+    }
+    if (useLetter) {
+      timings.letter.forEach(t => addToSchedule(t.value, "physical_letter"));
+    }
+
+    updateConfig({ communication_schedule: newSchedule });
+  };
+
+  // --- EVENT HANDLERS ---
+
+  const handleChannelToggle = (channel: "email" | "letter", checked: boolean) => {
+    if (channel === "email") {
+      setChannelEmail(checked);
+      syncScheduleToConfig(checked, channelLetter, channelTimings);
+    } else {
+      setChannelLetter(checked);
+      syncScheduleToConfig(channelEmail, checked, channelTimings);
+    }
+  };
+
+  const handleChannelFrequencyChange = (channel: "email" | "letter", value: number) => {
+    const next = Math.max(1, Math.min(4, value));
+    setChannelFrequency((prev) => ({ ...prev, [channel]: next }));
+
+    let nextTimings = { ...channelTimings };
+    const list = [...channelTimings[channel]];
+    
+    if (list.length < next) {
+      const toAdd = Array.from({ length: next - list.length }, () => ({ value: 1, unit: "weeks" as TimingUnit }));
+      nextTimings = { ...nextTimings, [channel]: [...list, ...toAdd] };
+    } else if (list.length > next) {
+      nextTimings = { ...nextTimings, [channel]: list.slice(0, next) };
+    }
+    
+    setChannelTimings(nextTimings);
+    syncScheduleToConfig(channelEmail, channelLetter, nextTimings);
+  };
+
+  const updateChannelTiming = (
+    channel: "email" | "letter",
+    index: number,
+    value: number
+  ) => {
+    const nextTimings = { ...channelTimings };
+    const list = [...nextTimings[channel]];
+    list[index] = { ...list[index], value: Math.max(1, Math.min(52, value)) };
+    nextTimings[channel] = list;
+    setChannelTimings(nextTimings);
+    syncScheduleToConfig(channelEmail, channelLetter, nextTimings);
+  };
+
+  const updateReminderChannelCost = (channel: "email" | "letter", value: number) => {
+    const normalized = Math.max(0, value);
+    setChannelCost((prev) => ({ ...prev, [channel]: normalized }));
+    if (channel === "email") updateConfig({ intervention_costs: { ...config.intervention_costs, email: normalized } });
+    if (channel === "letter") updateConfig({ intervention_costs: { ...config.intervention_costs, physical_letter: normalized } });
+  };
+
+  // --- ESTIMATED RUNTIME ---
+  const estimatedRuntimeLabel = useMemo(() => {
+    const COEFF_BASE_LATENCY = 500;
+    const COEFF_PER_AGENT_STEP = 0.0167;
+    const COEFF_GIF_GENERATION = 2000;
+    const COEFF_GIF_PER_AGENT = 7.72;
+    const COEFF_GIF_PER_AGENT_SQ = 0.001;
+
     const N = config.N;
     const steps = config.steps;
     const runs = config.n_runs ?? 1;
     const isGifEnabled = config.include_visualization ?? true;
 
-    // 3. CALCULATE
-    // Compute time: (Agents * Steps * Runs * Coeff)
     const computeTime = N * steps * runs * COEFF_PER_AGENT_STEP;
-    
-    // Visual time: Only happens once (for the first run), and only if enabled
     let visTime = 0;
     if (isGifEnabled) {
-      visTime = COEFF_GIF_GENERATION + (N * COEFF_GIF_PER_AGENT);
+      visTime = COEFF_GIF_GENERATION + (N * COEFF_GIF_PER_AGENT) + (N * N * COEFF_GIF_PER_AGENT_SQ);
     }
 
     const totalMs = COEFF_BASE_LATENCY + computeTime + visTime;
     const seconds = Math.round(totalMs / 1000);
 
-    if (seconds < 1) return "< 1 sec";
-    if (seconds < 60) return `~${seconds} sec`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `~${mins}m ${secs}s`;
+    if (seconds < 60) return "< 1 min";
+    const mins = Math.ceil(seconds / 60);
+    return `~${mins} mins`;
   }, [config.N, config.steps, config.n_runs, config.include_visualization]);
-  // -------------------------------------
 
-  const updateConfig = (partial: Partial<ModelConfig>) => {
-    onConfigChange({ ...config, ...partial });
-  };
 
+  // --- EFFECTS ---
   useEffect(() => {
     const formatted: Record<string, string> = {};
     Object.entries(config.audit_rates).forEach(([key, value]) => {
@@ -118,19 +198,6 @@ export function StrategyPanel({
   }, [config.audit_rates]);
 
   useEffect(() => {
-    if (config.audit_hour_price) {
-      setAuditHourPrice(config.audit_hour_price);
-    }
-    if (config.audit_hours) {
-      setAuditHours(config.audit_hours);
-    }
-  }, [config.audit_hour_price, config.audit_hours]);
-
-  useEffect(() => {
-    setWarningVisitWeekInput(config.warning_visit_week ? String(config.warning_visit_week) : "");
-  }, [config.warning_visit_week]);
-
-  useEffect(() => {
     setChannelCost((prev) => ({
       ...prev,
       email: config.intervention_costs.email,
@@ -138,30 +205,17 @@ export function StrategyPanel({
     }));
   }, [config.intervention_costs.email, config.intervention_costs.physical_letter]);
 
+  useEffect(() => {
+    setWarningVisitWeekInput(config.warning_visit_week ? String(config.warning_visit_week) : "");
+  }, [config.warning_visit_week]);
+
+
+  // --- AUDIT HELPERS ---
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
     const rate = Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100));
-    const updated = {
-      ...config.audit_rates,
-      [key]: rate,
-    };
+    const updated = { ...config.audit_rates, [key]: rate };
     updateConfig({ audit_rates: updated });
-  };
-
-  const updateAuditType = (type: AuditTypeKey, field: "effect" | "cost", value: number) => {
-    const normalizedValue =
-      field === "cost"
-        ? Math.max(0, Math.min(AUDIT_COST_MAX, value))
-        : Math.max(0, value);
-    updateConfig({
-      audit_types: {
-        ...config.audit_types,
-        [type]: {
-          ...config.audit_types[type],
-          [field]: normalizedValue,
-        },
-      },
-    });
   };
 
   const resetAuditType = (type: AuditTypeKey) => {
@@ -171,84 +225,20 @@ export function StrategyPanel({
     setAuditHourPrice((prev) => ({ ...prev, [type]: defaultPrice }));
     setAuditHours((prev) => ({ ...prev, [type]: defaultHours }));
     updateConfig({
-      audit_types: {
-        ...config.audit_types,
-        [type]: { ...defaultModelConfig.audit_types[type] },
-      },
-      audit_hours: {
-        ...config.audit_hours,
-        [type]: defaultHours,
-      },
-      audit_hour_price: {
-        ...config.audit_hour_price,
-        [type]: defaultPrice,
-      },
+      audit_types: { ...config.audit_types, [type]: { ...defaultModelConfig.audit_types[type] } },
+      audit_hours: { ...config.audit_hours, [type]: defaultHours },
+      audit_hour_price: { ...config.audit_hour_price, [type]: defaultPrice },
     });
   };
-
-  const updateReminderChannelCost = (channel: "email" | "letter", value: number) => {
-    const normalized = Math.max(0, value);
-    setChannelCost((prev) => ({ ...prev, [channel]: normalized }));
-    if (channel === "email") {
-      updateConfig({
-        intervention_costs: {
-          ...config.intervention_costs,
-          email: normalized,
-        },
-      });
-      return;
-    }
-    if (channel === "letter") {
-      updateConfig({
-        intervention_costs: {
-          ...config.intervention_costs,
-          physical_letter: normalized,
-        },
-      });
-      return;
-    }
-  };
-
+  
   const computeAuditCost = (type: AuditTypeKey, hours: number, price: number) =>
     Math.max(0, Math.min(AUDIT_COST_MAX, hours * price));
 
-  const handleChannelFrequencyChange = (channel: "email" | "letter", value: number) => {
-    const next = Math.max(1, Math.min(4, value));
-    setChannelFrequency((prev) => ({
-      ...prev,
-      [channel]: next,
-    }));
-    setChannelTimings((prev) => {
-      const list = [...prev[channel]];
-      if (list.length < next) {
-        const toAdd = Array.from({ length: next - list.length }, () => ({ value: 1, unit: "weeks" as TimingUnit }));
-        return { ...prev, [channel]: [...list, ...toAdd] };
-      }
-      if (list.length > next) {
-        return { ...prev, [channel]: list.slice(0, next) };
-      }
-      return prev;
-    });
-  };
-
-  const updateChannelTiming = (
-    channel: "email" | "letter",
-    index: number,
-    field: "value" | "unit",
-    value: number | TimingUnit,
-  ) => {
-    setChannelTimings((prev) => {
-      const list = [...prev[channel]];
-      const entry = { ...list[index] };
-      if (field === "value") {
-        const nextValue = typeof value === "number" ? value : entry.value;
-        entry.value = Math.max(1, Math.min(8, nextValue));
-      } else {
-        entry.unit = "weeks";
-      }
-      list[index] = entry;
-      return { ...prev, [channel]: list };
-    });
+  const updateAuditType = (type: AuditTypeKey, field: "effect" | "cost", value: number) => {
+      const normalizedValue = field === "cost" ? Math.max(0, Math.min(AUDIT_COST_MAX, value)) : Math.max(0, value);
+      updateConfig({
+        audit_types: { ...config.audit_types, [type]: { ...config.audit_types[type], [field]: normalizedValue } },
+      });
   };
 
   return (
@@ -268,7 +258,7 @@ export function StrategyPanel({
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Simulation Horizon</h3>
-            <Tooltip content="Number of weekly steps to simulate (52 weeks per year).">
+            <Tooltip content="Number of weekly steps to simulate.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
@@ -277,15 +267,8 @@ export function StrategyPanel({
               <label className="text-slate-600">Simulation Length</label>
               <span className="text-blue-600">
                 {(() => {
-                  const years = Math.floor(config.steps / 52);
-                  const remainderWeeks = config.steps % 52;
-                  let months = Math.round((remainderWeeks / 52) * 12);
-                  let displayYears = years;
-                  if (months === 12) {
-                    displayYears += 1;
-                    months = 0;
-                  }
-                  return `${config.steps} weeks · ${displayYears} years ${months} months`;
+                  const years = config.steps / 52;
+                  return `${config.steps} weeks · ${years.toString().replace(".", ",")} years`;
                 })()}
               </span>
             </div>
@@ -293,7 +276,7 @@ export function StrategyPanel({
               type="range"
               min="156"
               max="260"
-              step="4"
+              step="26"
               value={config.steps}
               onChange={(e) => updateConfig({ steps: Math.max(156, parseInt(e.target.value) || 156) })}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
@@ -306,21 +289,6 @@ export function StrategyPanel({
               <span>4 years</span>
               <span>5 years</span>
             </div>
-            {config.steps > 300 && (
-              <div
-                className="mt-4 flex items-center gap-2 text-red-700 border rounded-md"
-                style={{
-                  backgroundColor: "#fef2f2",
-                  borderColor: "#fecaca",
-                  padding: "12px 16px",
-                }}
-              >
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">
-                  Warning: simulations above 300 weeks may significantly increase runtime.
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -340,7 +308,7 @@ export function StrategyPanel({
                 <input
                   type="checkbox"
                   checked={channelEmail}
-                  onChange={(e) => setChannelEmail(e.target.checked)}
+                  onChange={(e) => handleChannelToggle("email", e.target.checked)}
                   className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                 />
                 <span className="ml-2 text-slate-700">Email</span>
@@ -349,7 +317,7 @@ export function StrategyPanel({
                 <input
                   type="checkbox"
                   checked={channelLetter}
-                  onChange={(e) => setChannelLetter(e.target.checked)}
+                  onChange={(e) => handleChannelToggle("letter", e.target.checked)}
                   className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                 />
                 <span className="ml-2 text-slate-700">Letter</span>
@@ -390,9 +358,7 @@ export function StrategyPanel({
                       min="0"
                       step="0.1"
                       value={channelCost.email}
-                      onChange={(e) =>
-                        updateReminderChannelCost("email", parseFloat(e.target.value) || 0)
-                      }
+                      onChange={(e) => updateReminderChannelCost("email", parseFloat(e.target.value) || 0)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
                     />
                   </div>
@@ -406,11 +372,9 @@ export function StrategyPanel({
                         <input
                           type="number"
                           min="1"
-                          max="8"
+                          max="52"
                           value={timing.value}
-                          onChange={(e) =>
-                            updateChannelTiming("email", index, "value", parseInt(e.target.value) || 1)
-                          }
+                          onChange={(e) => updateChannelTiming("email", index, parseInt(e.target.value) || 1)}
                           className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
                         />
                         <span className="text-slate-500 text-sm">weeks before deadline</span>
@@ -453,9 +417,7 @@ export function StrategyPanel({
                       min="0"
                       step="0.1"
                       value={channelCost.letter}
-                      onChange={(e) =>
-                        updateReminderChannelCost("letter", parseFloat(e.target.value) || 0)
-                      }
+                      onChange={(e) => updateReminderChannelCost("letter", parseFloat(e.target.value) || 0)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-slate-700"
                     />
                   </div>
@@ -469,11 +431,9 @@ export function StrategyPanel({
                         <input
                           type="number"
                           min="1"
-                          max="8"
+                          max="52"
                           value={timing.value}
-                          onChange={(e) =>
-                            updateChannelTiming("letter", index, "value", parseInt(e.target.value) || 1)
-                          }
+                          onChange={(e) => updateChannelTiming("letter", index, parseInt(e.target.value) || 1)}
                           className="w-16 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-center"
                         />
                         <span className="text-slate-500 text-sm">weeks before deadline</span>
@@ -483,12 +443,10 @@ export function StrategyPanel({
                 </div>
               </div>
             )}
-
           </div>
         </div>
 
-
-        {/* Tax Calendar */}
+        {/* Tax Calendar - Warning Visit Included but cost input removed */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-lg font-semibold">Tax Calendar</h3>
@@ -528,6 +486,7 @@ export function StrategyPanel({
               />
             </div>
 
+            {/* Warning Visit Week Input (Cost input removed) */}
             <div>
               <label className="block text-slate-700 mb-2">Warning Visit Week</label>
               <input
@@ -538,12 +497,9 @@ export function StrategyPanel({
                 onChange={(e) => {
                   const next = e.target.value;
                   setWarningVisitWeekInput(next);
-                  if (next === "") {
-                    return;
+                  if (next !== "" && !Number.isNaN(parseInt(next))) {
+                    updateConfig({ warning_visit_week: Math.max(1, Math.min(52, parseInt(next))) });
                   }
-                  updateConfig({
-                    warning_visit_week: Math.max(1, Math.min(52, parseInt(next) || 1)),
-                  });
                 }}
                 placeholder="Optional"
                 className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 placeholder:text-slate-400"
@@ -555,7 +511,6 @@ export function StrategyPanel({
           <div className={styles.taxCalendarTimeline}>
             <div className="mb-4">
               <h4 className="text-slate-700 font-medium mb-2">Annual Timeline</h4>
-              <p className="text-slate-500 text-sm">Visual representation of tax events across 52 weeks</p>
             </div>
 
             <div className="relative">
@@ -598,6 +553,7 @@ export function StrategyPanel({
                   </div>
                 )}
 
+                {/* Warning Marker */}
                 {warningVisitWeekInput !== "" &&
                   !Number.isNaN(parseInt(warningVisitWeekInput)) &&
                   parseInt(warningVisitWeekInput) >= 1 &&
@@ -636,7 +592,7 @@ export function StrategyPanel({
           </div>
         </div>
 
-        {/* Audit Types */}
+        {/* Audit Types & Rates & Run Sim Block (Kept exactly as before) */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Audit Types</h3>
@@ -644,63 +600,38 @@ export function StrategyPanel({
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
-
           <div className="grid grid-cols-3 gap-6">
             {auditTypeOrder.map((type) => (
               <div key={type} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-slate-700 font-medium">{type}</div>
-                  <button
-                    type="button"
-                    onClick={() => resetAuditType(type)}
-                    className="text-slate-500 hover:text-slate-900"
-                    aria-label="Reset to default"
-                    title="Reset to default"
-                  >
+                  <button type="button" onClick={() => resetAuditType(type)} className="text-slate-500 hover:text-slate-900">
                     <RotateCcw className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="space-y-3">
                   <div>
                     <label className="text-slate-600 text-sm block mb-1">Hours per audit</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={auditHours[type]}
+                    <input type="number" min="0" step="1" value={auditHours[type]}
                       onChange={(e) => {
                         const next = parseFloat(e.target.value) || 0;
                         setAuditHours((prev) => ({ ...prev, [type]: next }));
                         const cost = computeAuditCost(type, next, auditHourPrice[type]);
                         updateAuditType(type, "cost", cost);
-                        updateConfig({
-                          audit_hours: {
-                            ...config.audit_hours,
-                            [type]: next,
-                          },
-                        });
+                        updateConfig({ audit_hours: { ...config.audit_hours, [type]: next } });
                       }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
                   </div>
                   <div>
                     <label className="text-slate-600 text-sm block mb-1">FTE hour price</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={auditHourPrice[type]}
+                    <input type="number" min="0" step="0.01" value={auditHourPrice[type]}
                       onChange={(e) => {
                         const next = parseFloat(e.target.value) || 0;
                         setAuditHourPrice((prev) => ({ ...prev, [type]: next }));
                         const cost = computeAuditCost(type, auditHours[type], next);
                         updateAuditType(type, "cost", cost);
-                        updateConfig({
-                          audit_hour_price: {
-                            ...config.audit_hour_price,
-                            [type]: next,
-                          },
-                        });
+                        updateConfig({ audit_hour_price: { ...config.audit_hour_price, [type]: next } });
                       }}
                       className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                     />
@@ -719,17 +650,12 @@ export function StrategyPanel({
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full border border-slate-200 rounded-md">
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-slate-600 font-medium">Size \\ Age</th>
-                  {ageOrder.map((age) => (
-                    <th key={age} className="px-4 py-3 text-left text-slate-600 font-medium">
-                      {age}
-                    </th>
-                  ))}
+                  {ageOrder.map((age) => (<th key={age} className="px-4 py-3 text-left text-slate-600 font-medium">{age}</th>))}
                 </tr>
               </thead>
               <tbody>
@@ -739,26 +665,14 @@ export function StrategyPanel({
                     {ageOrder.map((age) => (
                       <td key={`${size}-${age}`} className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max={AUDIT_RATE_MAX * 100}
-                            step="0.01"
+                          <input type="number" min="0" max={AUDIT_RATE_MAX * 100} step="0.01"
                             value={auditRateInputs[`${size}-${age}`] ?? (config.audit_rates[`${size}-${age}`] * 100).toFixed(2)}
-                            onChange={(e) =>
-                              setAuditRateInputs((prev) => ({
-                                ...prev,
-                                [`${size}-${age}`]: e.target.value,
-                              }))
-                            }
+                            onChange={(e) => setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: e.target.value }))}
                             onBlur={(e) => {
                               const raw = parseFloat(e.target.value);
                               const pct = Number.isNaN(raw) ? 0 : raw;
                               updateAuditRate(size, age, pct);
-                              setAuditRateInputs((prev) => ({
-                                ...prev,
-                                [`${size}-${age}`]: (Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100)) * 100).toFixed(2),
-                              }));
+                              setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: (Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100)) * 100).toFixed(2) }));
                             }}
                             className="w-24 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
                           />
@@ -773,81 +687,51 @@ export function StrategyPanel({
           </div>
         </div>
 
-        {/* Run Simulation Section (New) */}
+        {/* Run Simulation */}
         <div className="bg-white rounded-lg border border-slate-200 p-8 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Run Simulation</h3>
-            {/* Tooltip removed from header */}
           </div>
-
           <div className="flex items-center justify-between gap-8">
             <div className="flex flex-col gap-4">
-              
-              {/* Network Visualization Toggle */}
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.include_visualization ?? true}
+                  <input type="checkbox" checked={config.include_visualization ?? true}
                     onChange={(e) => updateConfig({ include_visualization: e.target.checked })}
                     className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-slate-700 text-sm">Load network visualization</span>
                 </label>
-                <Tooltip content="Generates an animation of the network evolution (GIF). Disabling this significantly reduces runtime.">
+                <Tooltip content="Generates an animation of the network evolution (GIF).">
                   <Info className="w-4 h-4 text-slate-400 cursor-help" />
                 </Tooltip>
               </div>
-
-              {/* Multiple Simulations Toggle */}
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={multiRunEnabled}
-                    onChange={(e) =>
-                      updateConfig({
-                        n_runs: e.target.checked ? Math.max(2, runCount) : 1,
-                      })
-                    }
+                  <input type="checkbox" checked={multiRunEnabled}
+                    onChange={(e) => updateConfig({ n_runs: e.target.checked ? Math.max(2, runCount) : 1 })}
                     className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-slate-700 text-sm">Run multiple simulations</span>
                 </label>
-                
                 {multiRunEnabled && (
                   <div className="flex items-center gap-2 ml-2">
                     <span className="text-sm text-slate-500">Runs:</span>
-                    <input
-                      type="number"
-                      min="2"
-                      max="50"
-                      step="1"
-                      value={runCount}
-                      onChange={(e) =>
-                        updateConfig({
-                          n_runs: Math.max(2, Math.min(50, parseInt(e.target.value, 10) || 2)),
-                        })
-                      }
+                    <input type="number" min="2" max="50" step="1" value={runCount}
+                      onChange={(e) => updateConfig({ n_runs: Math.max(2, Math.min(50, parseInt(e.target.value, 10) || 2)) })}
                       className="w-16 px-2 py-1 bg-white border border-slate-300 rounded text-center text-sm"
                     />
                   </div>
                 )}
               </div>
             </div>
-
-            {/* ESTIMATED RUNTIME BLOCK */}
             <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg border border-slate-200 min-w-[140px]">
               <div className="flex items-center gap-2 text-slate-500 mb-1">
                 <Clock className="w-4 h-4" />
                 <span className="text-xs font-medium uppercase tracking-wide">Est. Runtime</span>
               </div>
-              <div className="text-xl font-bold text-slate-700">
-                {estimatedRuntimeLabel}
-              </div>
+              <div className="text-xl font-bold text-slate-700">{estimatedRuntimeLabel}</div>
             </div>
-
-            {/* Run Button and Progress */}
             <div className="flex flex-col items-end gap-3 min-w-[200px]">
               {isRunning && progress && progress.total > 0 && (
                 <div className="w-full">
@@ -856,33 +740,17 @@ export function StrategyPanel({
                     <span>{Math.round((progress.current / progress.total) * 100)}%</span>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-600 transition-all duration-300"
-                      style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                    />
+                    <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
                   </div>
                 </div>
               )}
-
               <div className="flex gap-3">
                 {isRunning && (
-                  <button
-                    onClick={onInterrupt}
-                    className="px-4 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium"
-                  >
+                  <button onClick={onInterrupt} className="px-4 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium">
                     Interrupt
                   </button>
                 )}
-                
-                <button
-                  onClick={onRun}
-                  disabled={isRunning}
-                  className={`px-6 py-2.5 rounded-md flex items-center justify-center gap-2 font-medium transition-colors ${
-                    isRunning
-                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
+                <button onClick={onRun} disabled={isRunning} className={`px-6 py-2.5 rounded-md flex items-center justify-center gap-2 font-medium transition-colors ${isRunning ? "bg-slate-300 text-slate-500 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}`}>
                   {isRunning ? "Running..." : "Start Simulation"}
                   {!isRunning && <ChevronRight className="w-4 h-4" />}
                 </button>

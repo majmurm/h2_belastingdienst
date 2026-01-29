@@ -367,7 +367,7 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
         </div>
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">
-          <h3 className="text-slate-900 text-md font-medium mb-6">Enterprise Characteristics Distribution</h3>
+          <h3 className="text-slate-900 text-md font-medium mb-6">Enterprise Characteristics Distribution (Manual Selection)</h3>
           <div className="space-y-4">
             <Collapsible open={openSections.size} onOpenChange={() => toggleSection("size")}>
               <div className="border border-slate-200 rounded-md">
