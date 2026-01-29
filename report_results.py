@@ -66,11 +66,11 @@ def capture_state(model_instance):
 
 
 # Number of Agents
-N = 10000
+N = 1000
 
 # Demographics
 size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
-age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
+age_shares = {"Young": 0.38, "Mature": 0.24, "Old": 0.38}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target = 0.693
@@ -111,22 +111,20 @@ channel_effects = {
 
 # Define 3 types of audits with different effects and costs
 audit_types = {
-    "Light": {"effect": 0.45, "cost": 500.0},  # IH profit return check
-    "Standard": {"effect": 0.90, "cost": 775.0},  # corporate income tax return check
+    "Light": {"effect": 0.90, "cost": 2340},  # IH profit return check
+    "Standard": {"effect": 0.90, "cost": 2340},  # corporate income tax return check
     "Deep": {
         "effect": 1.80,
-        "cost": 1570.0,
-    },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
-    # official source Belastingdienst: Scale 8, step 5 EUR3643 --> 1 FTE hr = EUR 21.07
-    # according to Cees sources: EUR 60
+        "cost": 4680,
+    },  # book audit
 }
 
 
 # Define Costs (in EUR)
 intervention_costs = {
-    "email": 0.05,  # Minimal system cost
-    "physical_letter": 0.85,  # Print + Postage
-    "warning_letter": 20.96,  # Letter + ~1hr FTE for hand delivery
+    "email": 0.39,  
+    "physical_letter": 0.65,  
+    "warning_letter": 196.84, 
 }
 
 # 3. DEFINE THE SCHEDULE
