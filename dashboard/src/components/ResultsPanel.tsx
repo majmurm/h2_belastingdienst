@@ -423,7 +423,7 @@ export function ResultsPanel({
 
           <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Impact & ROI</h3>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-600 mb-2">Tax Gap Reduction</h3>
                 <div className="text-slate-900 mb-1">
