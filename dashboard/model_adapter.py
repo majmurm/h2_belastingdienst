@@ -597,17 +597,25 @@ def run_simulation(
     n_runs = max(1, n_runs)
     steps_per_run = int(config["steps"])
     total_steps = steps_per_run * n_runs
+    
+    # NEW: Check if visualization is requested
+    include_viz = bool(config.get("include_visualization", True))
 
     if n_runs == 1:
-        return _run_single_simulation(config, progress_path=progress_path, total_steps=total_steps)
+        return _run_single_simulation(
+            config, 
+            progress_path=progress_path, 
+            total_steps=total_steps,
+            generate_gif=include_viz # Respect the flag
+        )
 
     results_list: list[Dict[str, Any]] = []
     for run_idx in range(n_runs):
         run_config = dict(config)
         run_config["seed"] = int(config.get("seed", 42)) + run_idx
         
-        # CHANGED: Enable GIF only for the first run to act as a representative sample
-        do_gif = (run_idx == 0)
+        # Only generate GIF for the first run, AND only if requested
+        do_gif = (run_idx == 0) and include_viz
         
         results_list.append(
             _run_single_simulation(
@@ -615,7 +623,7 @@ def run_simulation(
                 progress_path=progress_path,
                 progress_offset=run_idx * steps_per_run,
                 total_steps=total_steps,
-                generate_gif=do_gif, # <--- Changed from False
+                generate_gif=do_gif,
             )
         )
 
@@ -623,7 +631,7 @@ def run_simulation(
     initial_metrics = averaged_steps[0]
     final_metrics = averaged_steps[-1]
     
-    # CHANGED: Extract the GIF from the first run and attach it to the final averaged result
+    # Extract the GIF from the first run if available
     if results_list and "network_gif" in results_list[0]["final"]:
         final_metrics["network_gif"] = results_list[0]["final"]["network_gif"]
 

@@ -621,39 +621,60 @@ export function ResultsPanel({
 
 
           {/* NETWORK ANIMATION VISUALIZATION */}
-          {(results.final as any).network_gif && (
-            <div className="mb-8 print-break-inside-avoid">
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-900 text-md font-medium mb-4">
-                  Network Compliance Evolution
-                </h3>
-                <div className="flex flex-col items-start justify-center bg-slate-50 rounded-lg p-4 text-left">
-                  {/* DISPLAY GIF HERE */}
-                  <img 
-                    src={`data:image/gif;base64,${(results.final as any).network_gif}`} 
-                    alt="Network Animation" 
-                    className="max-w-full h-auto rounded shadow-sm border border-slate-200 self-center"
-                    style={{ maxHeight: "600px" }}
-                  />
-                  <div className="flex items-center gap-4 mt-4 self-center">
-                    <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-purple-700"></span>
-
+          <div className="mb-8 print-break-inside-avoid">
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <h3 className="text-slate-900 text-md font-medium mb-4">
+                Network Compliance Evolution (Animation)
+              </h3>
+              <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg p-4 min-h-[300px]">
+                {(results.final as any).network_gif ? (
+                  <>
+                    {/* DISPLAY GIF */}
+                    <img 
+                      src={`data:image/gif;base64,${(results.final as any).network_gif}`} 
+                      alt="Network Animation" 
+                      className="max-w-full h-auto rounded shadow-sm border border-slate-200"
+                      style={{ maxHeight: "600px" }}
+                    />
+                    
+                    {/* LEGEND */}
+                    <div className="flex items-center gap-4 mt-4 mb-2">
+                      <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-purple-700"></span>
+                          <span className="text-xs text-slate-500">Low Compliance</span>
+                      </div>
+                      <div className="h-0.5 w-12 bg-gradient-to-r from-purple-700 via-teal-500 to-yellow-400"></div>
+                      <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                          <span className="text-xs text-slate-500">High Compliance</span>
+                      </div>
                     </div>
-                    <div className="h-0.5 w-12 bg-gradient-to-r from-purple-700 via-teal-500 to-yellow-400"></div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
 
+                    {/* FIGURE CAPTION */}
+                    <p className="text-sm text-slate-600 mt-3 text-center max-w-2xl italic leading-relaxed">
+                      <span className="font-semibold not-italic">Figure 1.</span> Temporal evolution of compliance propensity within the SME network. 
+                      Nodes represent individual agents (N={selectedConfig.N.toLocaleString()}), colored by compliance level. 
+                      The animation demonstrates the diffusion of behavioral changes in response to 
+                      audit shockwaves and communication nudges over the {selectedConfig.steps}-week simulation.
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="bg-slate-200 p-3 rounded-full mb-3">
+                      <AlertCircle className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h4 className="text-slate-900 font-medium mb-1">Visualization Disabled</h4>
+                    <p className="text-slate-500 text-sm max-w-sm mb-4">
+                      Network visualization was toggled off for this simulation run to improve performance.
+                    </p>
+                    <div className="text-xs text-slate-400 bg-white px-3 py-1.5 rounded border border-slate-200">
+                      Tip: Enable "Load network visualization" in the Strategy Selection panel to see the animation here.
                     </div>
                   </div>
-                    <p className="text-sm text-slate-600 mt-3 text-left max-w-2xl italic leading-relaxed">
-                    Evolution of compliance within the SME network over the {selectedConfig.steps}-week simulation period. 
-                    Nodes represent individual agents (N={selectedConfig.N.toLocaleString()}), colored by compliance level. 
-                   </p>
-                </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </>
       )}
     </div>

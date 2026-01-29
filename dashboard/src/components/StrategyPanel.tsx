@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Info, AlertCircle, RotateCcw, ChevronRight } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Info, AlertCircle, RotateCcw, ChevronRight, Clock } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import type { ModelConfig, SizeCategory, AgeCategory, AuditTypeKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
@@ -66,35 +66,47 @@ export function StrategyPanel({
   const [warningVisitWeekInput, setWarningVisitWeekInput] = useState<string>(
     config.warning_visit_week ? String(config.warning_visit_week) : "",
   );
+  
   const multiRunEnabled = (config.n_runs ?? 1) > 1;
   const runCount = Math.max(1, config.n_runs ?? 1);
 
+  // --- ESTIMATED RUNTIME CALCULATION ---
+  const estimatedRuntimeLabel = useMemo(() => {
+    // 1. EDIT THESE PLACEHOLDERS TO MATCH YOUR SERVER PERFORMANCE
+    const COEFF_BASE_LATENCY = 800;       // Fixed overhead (startup time) in ms
+    const COEFF_PER_AGENT_STEP = 0.0015;  // Time per agent per step in ms (e.g. 0.0015)
+    const COEFF_GIF_GENERATION = 2500;    // Fixed cost to generate GIF in ms (if enabled)
+    const COEFF_GIF_PER_AGENT = 0.05;     // Extra GIF cost per agent (drawing nodes) in ms
+
+    // 2. GET CURRENT PARAMS
+    const N = config.N;
+    const steps = config.steps;
+    const runs = config.n_runs ?? 1;
+    const isGifEnabled = config.include_visualization ?? true;
+
+    // 3. CALCULATE
+    // Compute time: (Agents * Steps * Runs * Coeff)
+    const computeTime = N * steps * runs * COEFF_PER_AGENT_STEP;
+    
+    // Visual time: Only happens once (for the first run), and only if enabled
+    let visTime = 0;
+    if (isGifEnabled) {
+      visTime = COEFF_GIF_GENERATION + (N * COEFF_GIF_PER_AGENT);
+    }
+
+    const totalMs = COEFF_BASE_LATENCY + computeTime + visTime;
+    const seconds = Math.round(totalMs / 1000);
+
+    if (seconds < 1) return "< 1 sec";
+    if (seconds < 60) return `~${seconds} sec`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `~${mins}m ${secs}s`;
+  }, [config.N, config.steps, config.n_runs, config.include_visualization]);
+  // -------------------------------------
+
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
-  };
-
-  const buildCommunicationSchedule = () => {
-    const schedule: Record<number, ("email" | "physical_letter")[]> = {};
-    const addChannel = (week: number, channel: "email" | "physical_letter") => {
-      if (!schedule[week]) schedule[week] = [];
-      if (!schedule[week].includes(channel)) schedule[week].push(channel);
-    };
-
-    if (channelEmail) {
-      channelTimings.email.forEach((timing) => {
-        const week = Math.max(1, Math.min(8, timing.value));
-        addChannel(week, "email");
-      });
-    }
-
-    if (channelLetter) {
-      channelTimings.letter.forEach((timing) => {
-        const week = Math.max(1, Math.min(8, timing.value));
-        addChannel(week, "physical_letter");
-      });
-    }
-
-    return schedule;
   };
 
   useEffect(() => {
@@ -125,10 +137,6 @@ export function StrategyPanel({
       letter: config.intervention_costs.physical_letter,
     }));
   }, [config.intervention_costs.email, config.intervention_costs.physical_letter]);
-
-  useEffect(() => {
-    updateConfig({ communication_schedule: buildCommunicationSchedule() });
-  }, [channelEmail, channelLetter, channelTimings]);
 
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
@@ -256,6 +264,7 @@ export function StrategyPanel({
       </div>
 
       <div className="space-y-6">
+        {/* Simulation Horizon */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Simulation Horizon</h3>
@@ -315,6 +324,7 @@ export function StrategyPanel({
           </div>
         </div>
 
+        {/* Reminder Strategy */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Reminder Strategy</h3>
@@ -478,6 +488,7 @@ export function StrategyPanel({
         </div>
 
 
+        {/* Tax Calendar */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-lg font-semibold">Tax Calendar</h3>
@@ -625,6 +636,7 @@ export function StrategyPanel({
           </div>
         </div>
 
+        {/* Audit Types */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Audit Types</h3>
@@ -699,6 +711,7 @@ export function StrategyPanel({
           </div>
         </div>
 
+        {/* Audit Rates */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Audit Rates by Segment</h3>
@@ -760,80 +773,121 @@ export function StrategyPanel({
           </div>
         </div>
 
-      </div>
-
-      <div className="mt-8 flex justify-end">
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={multiRunEnabled}
-                onChange={(e) =>
-                  updateConfig({
-                    n_runs: e.target.checked ? Math.max(2, runCount) : 1,
-                  })
-                }
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded"
-              />
-              Run multiple simulations
-            </label>
-            {multiRunEnabled && (
-              <div className="flex items-center gap-2">
-                <span>Runs:</span>
-                <input
-                  type="number"
-                  min="2"
-                  max="50"
-                  step="1"
-                  value={runCount}
-                  onChange={(e) =>
-                    updateConfig({
-                      n_runs: Math.max(2, Math.min(50, parseInt(e.target.value, 10) || 2)),
-                    })
-                  }
-                  className="w-20 px-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-700 text-sm"
-                />
-              </div>
-            )}
+        {/* Run Simulation Section (New) */}
+        <div className="bg-white rounded-lg border border-slate-200 p-8 shadow-sm">
+          <div className="flex items-center gap-2 mb-6">
+            <h3 className="text-slate-900 text-md font-medium">Run Simulation</h3>
+            {/* Tooltip removed from header */}
           </div>
-          {isRunning && progress && progress.total > 0 && (
-            <div className="w-80">
-              <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                <span>
-                  Progress: {progress.current} / {progress.total} steps
-                </span>
-                <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+
+          <div className="flex items-center justify-between gap-8">
+            <div className="flex flex-col gap-4">
+              
+              {/* Network Visualization Toggle */}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.include_visualization ?? true}
+                    onChange={(e) => updateConfig({ include_visualization: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-slate-700 text-sm">Load network visualization</span>
+                </label>
+                <Tooltip content="Generates an animation of the network evolution (GIF). Disabling this significantly reduces runtime.">
+                  <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                </Tooltip>
               </div>
-              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600"
-                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                />
+
+              {/* Multiple Simulations Toggle */}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={multiRunEnabled}
+                    onChange={(e) =>
+                      updateConfig({
+                        n_runs: e.target.checked ? Math.max(2, runCount) : 1,
+                      })
+                    }
+                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-slate-700 text-sm">Run multiple simulations</span>
+                </label>
+                
+                {multiRunEnabled && (
+                  <div className="flex items-center gap-2 ml-2">
+                    <span className="text-sm text-slate-500">Runs:</span>
+                    <input
+                      type="number"
+                      min="2"
+                      max="50"
+                      step="1"
+                      value={runCount}
+                      onChange={(e) =>
+                        updateConfig({
+                          n_runs: Math.max(2, Math.min(50, parseInt(e.target.value, 10) || 2)),
+                        })
+                      }
+                      className="w-16 px-2 py-1 bg-white border border-slate-300 rounded text-center text-sm"
+                    />
+                  </div>
+                )}
               </div>
             </div>
-          )}
-          <div className="flex items-center gap-4">
-            {isRunning && (
-              <button
-                onClick={onInterrupt}
-                className="px-5 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
-              >
-                Interrupt
-              </button>
-            )}
-            <button
-              onClick={onRun}
-              disabled={isRunning}
-              className={`px-6 py-2.5 rounded-md flex items-center gap-2 ${
-                isRunning
-                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              {isRunning ? "Running Simulation..." : "Run Simulation"}
-              <ChevronRight className="w-4 h-4" />
-            </button>
+
+            {/* ESTIMATED RUNTIME BLOCK */}
+            <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-lg border border-slate-200 min-w-[140px]">
+              <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <Clock className="w-4 h-4" />
+                <span className="text-xs font-medium uppercase tracking-wide">Est. Runtime</span>
+              </div>
+              <div className="text-xl font-bold text-slate-700">
+                {estimatedRuntimeLabel}
+              </div>
+            </div>
+
+            {/* Run Button and Progress */}
+            <div className="flex flex-col items-end gap-3 min-w-[200px]">
+              {isRunning && progress && progress.total > 0 && (
+                <div className="w-full">
+                  <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                    <span>Step {progress.current}/{progress.total}</span>
+                    <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-300"
+                      style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                {isRunning && (
+                  <button
+                    onClick={onInterrupt}
+                    className="px-4 py-2.5 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                  >
+                    Interrupt
+                  </button>
+                )}
+                
+                <button
+                  onClick={onRun}
+                  disabled={isRunning}
+                  className={`px-6 py-2.5 rounded-md flex items-center justify-center gap-2 font-medium transition-colors ${
+                    isRunning
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {isRunning ? "Running..." : "Start Simulation"}
+                  {!isRunning && <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
