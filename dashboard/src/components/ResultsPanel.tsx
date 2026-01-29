@@ -44,6 +44,11 @@ const formatCurrency = (value: number) =>
     value,
   );
 
+const formatCurrencyTwoDecimals = (value: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+    value,
+  );
+
 export function ResultsPanel({
   results,
   config,
@@ -63,6 +68,18 @@ export function ResultsPanel({
   const auditHours = selectedConfig.audit_hours ?? defaultModelConfig.audit_hours;
   const auditHourPrice = selectedConfig.audit_hour_price ?? defaultModelConfig.audit_hour_price;
   const selectedSectors = selectedConfig.selected_sectors ?? defaultModelConfig.selected_sectors;
+  const friendlyChannel = (channel: string) => {
+    switch (channel) {
+      case "email":
+        return "Email";
+      case "physical_letter":
+        return "Physical Letter";
+      case "warning_letter":
+        return "Warning Letter";
+      default:
+        return channel.replace(/_/g, " ");
+    }
+  };
 
   const handleExportPdf = () => {
     const target = resultsRef.current;
@@ -340,6 +357,51 @@ export function ResultsPanel({
           </div>
 
           <div className="mb-8">
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <h3 className="text-slate-900 text-md font-medium mb-4">
+                Strategy Used
+              </h3>
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                  <h4 className="text-slate-700 font-medium mb-2">Reminders (Weeks Before Deadline)</h4>
+                  {selectedConfig.communication_schedule &&
+                  Object.keys(selectedConfig.communication_schedule).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(selectedConfig.communication_schedule)
+                        .sort(([a], [b]) => Number(b) - Number(a))
+                        .map(([week, channels]) => (
+                          <div key={week} className="flex justify-between">
+                            <span>{week} weeks:</span>
+                            <span className="text-slate-900">
+                              {(channels as string[]).map(friendlyChannel).join(", ")}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500">-</div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-slate-700 font-medium mb-2">Audit Rates by Group</h4>
+                  {selectedConfig.audit_rates ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(selectedConfig.audit_rates).map(([key, value]) => (
+                        <div key={key} className="flex justify-between gap-2 bg-slate-50 rounded px-2 py-1">
+                          <span>{key}</span>
+                          <span className="text-slate-900">{(value * 100).toFixed(2)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500">-</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Key Performance Indicators</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
@@ -366,7 +428,7 @@ export function ResultsPanel({
 
           <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Impact & ROI</h3>
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-600 mb-2">Tax Gap Reduction</h3>
                 <div className="text-slate-900 mb-1">
@@ -377,20 +439,6 @@ export function ResultsPanel({
                 <p className="text-slate-500">
                   % of baseline
                 </p>
-              </div>
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">Estimated Cost</h3>
-                <div className="text-slate-900 mb-1">
-                  {results.summary ? formatCurrency(results.summary.total_cost) : "—"}
-                </div>
-                <p className="text-slate-500">All interventions</p>
-              </div>
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-slate-600 mb-2">Estimated Net Benefit</h3>
-                <div className="text-slate-900 mb-1">
-                  {results.summary ? formatCurrency(results.summary.net_benefit) : "—"}
-                </div>
-                <p className="text-slate-500">Reduction minus cost</p>
               </div>
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <h3 className="text-slate-600 mb-2">ROI Ratio</h3>
@@ -413,19 +461,19 @@ export function ResultsPanel({
                       <div className="flex justify-between">
                         <span className="text-slate-600">Light</span>
                         <span className="text-slate-900">
-                          {auditHours.Light}h × {formatCurrency(auditHourPrice.Light)}
+                          {auditHours.Light}h × {formatCurrencyTwoDecimals(auditHourPrice.Light)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Standard</span>
                         <span className="text-slate-900">
-                          {auditHours.Standard}h × {formatCurrency(auditHourPrice.Standard)}
+                          {auditHours.Standard}h × {formatCurrencyTwoDecimals(auditHourPrice.Standard)}
                         </span>
                       </div>
                       <div className="flex justify-between mb-3">
                         <span className="text-slate-600">Deep</span>
                         <span className="text-slate-900">
-                          {auditHours.Deep}h × {formatCurrency(auditHourPrice.Deep)}
+                          {auditHours.Deep}h × {formatCurrencyTwoDecimals(auditHourPrice.Deep)}
                         </span>
                       </div>
                     </div>
@@ -433,57 +481,27 @@ export function ResultsPanel({
                   <div>
                     <h4 className="text-slate-700 font-medium mb-2">Communication Cost per Unit</h4>
                     <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Email</span>
-                        <span className="text-slate-900">{formatCurrency(selectedConfig.intervention_costs.email)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Physical Letter</span>
-                        <span className="text-slate-900">
-                          {formatCurrency(selectedConfig.intervention_costs.physical_letter)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between mb-3">
-                        <span className="text-slate-600">Warning Letter</span>
-                        <span className="text-slate-900">
-                          {formatCurrency(selectedConfig.intervention_costs.warning_letter)}
-                        </span>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Email</span>
+                      <span className="text-slate-900">{formatCurrencyTwoDecimals(selectedConfig.intervention_costs.email)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Physical Letter</span>
+                      <span className="text-slate-900">
+                        {formatCurrencyTwoDecimals(selectedConfig.intervention_costs.physical_letter)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between mb-3">
+                      <span className="text-slate-600">Warning Letter</span>
+                      <span className="text-slate-900">
+                        {formatCurrencyTwoDecimals(selectedConfig.intervention_costs.warning_letter)}
+                      </span>
+                    </div>
                     </div>
                   </div>
                 </div>
               </div>
             </details>
-          </div>
-
-          <div className="mb-8">
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-slate-900 text-md font-medium mb-4">
-                Annual Tax Gap by Group
-              </h3>
-              <p className="text-slate-600 mb-4">
-                Estimated annual revenue loss from non-compliance per enterprise group.
-              </p>
-              <div className="grid grid-cols-3 gap-6">
-                {["Micro", "Small", "Medium"].map((size) => (
-                  <div key={size} className="space-y-2">
-                    <h4 className="text-slate-700 font-medium text-sm mb-3">{size}</h4>
-                    {["Young", "Mature", "Old"].map((age) => {
-                      const key = `${size}-${age}` as GroupKey;
-                      const entry = groupTaxGap[key];
-                      return (
-                        <div key={key} className="flex justify-between items-center p-2.5 bg-slate-50 rounded">
-                          <span className="text-slate-600 text-sm">{age}</span>
-                          <span className="text-slate-900 text-sm font-medium">
-                            {entry ? formatCurrency(entry.gap) : "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="mb-8">

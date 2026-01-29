@@ -73,6 +73,30 @@ export function StrategyPanel({
     onConfigChange({ ...config, ...partial });
   };
 
+  const buildCommunicationSchedule = () => {
+    const schedule: Record<number, ("email" | "physical_letter")[]> = {};
+    const addChannel = (week: number, channel: "email" | "physical_letter") => {
+      if (!schedule[week]) schedule[week] = [];
+      if (!schedule[week].includes(channel)) schedule[week].push(channel);
+    };
+
+    if (channelEmail) {
+      channelTimings.email.forEach((timing) => {
+        const week = Math.max(1, Math.min(8, timing.value));
+        addChannel(week, "email");
+      });
+    }
+
+    if (channelLetter) {
+      channelTimings.letter.forEach((timing) => {
+        const week = Math.max(1, Math.min(8, timing.value));
+        addChannel(week, "physical_letter");
+      });
+    }
+
+    return schedule;
+  };
+
   useEffect(() => {
     const formatted: Record<string, string> = {};
     Object.entries(config.audit_rates).forEach(([key, value]) => {
@@ -101,6 +125,10 @@ export function StrategyPanel({
       letter: config.intervention_costs.physical_letter,
     }));
   }, [config.intervention_costs.email, config.intervention_costs.physical_letter]);
+
+  useEffect(() => {
+    updateConfig({ communication_schedule: buildCommunicationSchedule() });
+  }, [channelEmail, channelLetter, channelTimings]);
 
   const updateAuditRate = (size: SizeCategory, age: AgeCategory, pct: number) => {
     const key = `${size}-${age}` as const;
