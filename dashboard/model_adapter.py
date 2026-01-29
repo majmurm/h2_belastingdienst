@@ -166,7 +166,7 @@ def generate_network_gif(model: SMEComplianceModel, snapshots: list) -> str | No
             format="GIF",
             save_all=True,
             append_images=frames[1:],
-            duration=1000,
+            duration=800,
             loop=0,
         )
         gif_buf.seek(0)
@@ -527,7 +527,7 @@ def _run_single_simulation(
     G_nodes = list(model.grid.G.nodes())
 
     T = int(config["steps"])
-    FRAMES_WANTED = 10
+    FRAMES_WANTED = 15
     snapshot_interval = max(1, int(T / FRAMES_WANTED))
 
     # Capture Step 0
@@ -605,19 +605,28 @@ def run_simulation(
     for run_idx in range(n_runs):
         run_config = dict(config)
         run_config["seed"] = int(config.get("seed", 42)) + run_idx
+        
+        # CHANGED: Enable GIF only for the first run to act as a representative sample
+        do_gif = (run_idx == 0)
+        
         results_list.append(
             _run_single_simulation(
                 run_config,
                 progress_path=progress_path,
                 progress_offset=run_idx * steps_per_run,
                 total_steps=total_steps,
-                generate_gif=False,
+                generate_gif=do_gif, # <--- Changed from False
             )
         )
 
     averaged_steps = _average_steps(results_list)
     initial_metrics = averaged_steps[0]
     final_metrics = averaged_steps[-1]
+    
+    # CHANGED: Extract the GIF from the first run and attach it to the final averaged result
+    if results_list and "network_gif" in results_list[0]["final"]:
+        final_metrics["network_gif"] = results_list[0]["final"]["network_gif"]
+
     initial_gap = float(initial_metrics["tax_gap"]["total_gap"])
     final_gap = float(final_metrics["tax_gap"]["total_gap"])
     reduction = initial_gap - final_gap

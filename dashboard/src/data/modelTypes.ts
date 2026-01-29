@@ -5,19 +5,12 @@ export type GroupKey = `${SizeCategory}-${AgeCategory}`;
 export type ChannelKey = "physical_letter" | "email" | "warning_letter";
 export type AuditTypeKey = "Light" | "Standard" | "Deep";
 export type SectorKey =
-  | "Business Economy, B-N, excl. K, incl. 95"
-  | "B Delfstoffenwinning"
-  | "C Industrie"
-  | "D Energievoorziening"
-  | "E Waterbedrijven en afvalbeheer"
-  | "F Bouwnijverheid"
-  | "G Handel"
-  | "H Vervoer en opslag"
-  | "I Horeca"
-  | "J Informatie en communicatie"
-  | "L Verhuur en handel van onroerend goed"
-  | "M Specialistische zakelijke diensten"
-  | "N Verhuur en overige zakelijke diensten";
+  | "Industry and Energy (B-E)"
+  | "Construction (F)"
+  | "Trade, Transport and Hospitality (G-I)"
+  | "Information and Communication (J)"
+  | "Real Estate (L)"
+  | "Business Services (M-N)";
 
 export interface ModelConfig {
   N: number;

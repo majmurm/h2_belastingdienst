@@ -14,14 +14,13 @@ interface PopulationPanelProps {
 
 const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
 const ageOrder: AgeCategory[] = ["Young", "Mature", "Old"];
-const businessEconomyLabel = "Business Economy, B-N, excl. K, incl. 95" as const;
 const selectAllLabel = "All" as const;
-const sectorList = (sectorDefaults.sectors as SectorKey[]).filter(
-  (sector) => sector !== businessEconomyLabel,
-);
+
+const sectorList = sectorDefaults.sectors_individual as SectorKey[];
 const individualSectors = sectorDefaults.sectors_individual as SectorKey[];
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
 export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPanelProps) {
   const [distributionType, setDistributionType] = useState<"reallife" | "manual">("reallife");
   const [openSections, setOpenSections] = useState<{ size: boolean; age: boolean }>({
@@ -61,21 +60,17 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
     const shares = sectorDefaults.sector_shares as Record<SectorKey, number>;
     const total = selected.reduce((sum, sector) => sum + (shares[sector] ?? 0), 0);
     if (total <= 0) {
-      const empty = selected.reduce<Record<SectorKey, number>>((acc, sector) => {
+      return selected.reduce<Record<SectorKey, number>>((acc, sector) => {
         acc[sector] = 0;
         return acc;
       }, {} as Record<SectorKey, number>);
-      empty[businessEconomyLabel] = 0;
-      return empty;
     }
     const normalized = selected.reduce<Record<SectorKey, number>>((acc, sector) => {
       acc[sector] = (shares[sector] ?? 0) / total;
       return acc;
     }, {} as Record<SectorKey, number>);
-    normalized[businessEconomyLabel] = selected.reduce(
-      (sum, sector) => sum + (normalized[sector] ?? 0),
-      0,
-    );
+    
+    // CHANGED: Removed the logic that added the 'Business Economy' total key
     return normalized;
   };
 

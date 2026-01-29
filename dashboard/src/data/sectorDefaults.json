@@ -1,113 +1,50 @@
 {
-  "sectors": [
-    "Business Economy, B-N, excl. K, incl. 95",
-    "B Delfstoffenwinning",
-    "C Industrie",
-    "D Energievoorziening",
-    "E Waterbedrijven en afvalbeheer",
-    "F Bouwnijverheid",
-    "G Handel",
-    "H Vervoer en opslag",
-    "I Horeca",
-    "J Informatie en communicatie",
-    "L Verhuur en handel van onroerend goed",
-    "M Specialistische zakelijke diensten",
-    "N Verhuur en overige zakelijke diensten"
-  ],
   "sectors_individual": [
-    "B Delfstoffenwinning",
-    "C Industrie",
-    "D Energievoorziening",
-    "E Waterbedrijven en afvalbeheer",
-    "F Bouwnijverheid",
-    "G Handel",
-    "H Vervoer en opslag",
-    "I Horeca",
-    "J Informatie en communicatie",
-    "L Verhuur en handel van onroerend goed",
-    "M Specialistische zakelijke diensten",
-    "N Verhuur en overige zakelijke diensten"
+    "Industry and Energy (B-E)",
+    "Construction (F)",
+    "Trade, Transport and Hospitality (G-I)",
+    "Information and Communication (J)",
+    "Real Estate (L)",
+    "Business Services (M-N)"
   ],
   "sector_shares": {
-    "B Delfstoffenwinning": 0.000398,
-    "C Industrie": 0.053264,
-    "D Energievoorziening": 0.00135,
-    "E Waterbedrijven en afvalbeheer": 0.001245,
-    "F Bouwnijverheid": 0.167162,
-    "G Handel": 0.182415,
-    "H Vervoer en opslag": 0.042477,
-    "I Horeca": 0.05038,
-    "J Informatie en communicatie": 0.081998,
-    "L Verhuur en handel van onroerend goed": 0.024314,
-    "M Specialistische zakelijke diensten": 0.312267,
-    "N Verhuur en overige zakelijke diensten": 0.08273,
-    "Business Economy, B-N, excl. K, incl. 95": 1.0
+    "Industry and Energy (B-E)": 0.055821,
+    "Construction (F)": 0.164883,
+    "Trade, Transport and Hospitality (G-I)": 0.272266,
+    "Information and Communication (J)": 0.08196,
+    "Real Estate (L)": 0.024563,
+    "Business Services (M-N)": 0.400507
   },
   "size_shares_by_sector": {
-    "B Delfstoffenwinning": {
-      "Micro": 0.883721,
-      "Small": 0.062016,
-      "Medium": 0.054264
+    "Industry and Energy (B-E)": {
+      "Micro": 0.910185,
+      "Small": 0.066285,
+      "Medium": 0.023529
     },
-    "C Industrie": {
-      "Micro": 0.909086,
-      "Small": 0.06749,
-      "Medium": 0.023424
+    "Construction (F)": {
+      "Micro": 0.980362,
+      "Small": 0.01678,
+      "Medium": 0.002858
     },
-    "D Energievoorziening": {
-      "Micro": 0.949657,
-      "Small": 0.034325,
-      "Medium": 0.016018
+    "Trade, Transport and Hospitality (G-I)": {
+      "Micro": 0.946767,
+      "Small": 0.045628,
+      "Medium": 0.007605
     },
-    "E Waterbedrijven en afvalbeheer": {
-      "Micro": 0.868486,
-      "Small": 0.091811,
-      "Medium": 0.039702
+    "Information and Communication (J)": {
+      "Micro": 0.97203,
+      "Small": 0.022554,
+      "Medium": 0.005416
     },
-    "F Bouwnijverheid": {
-      "Micro": 0.980158,
-      "Small": 0.016979,
-      "Medium": 0.002864
+    "Real Estate (L)": {
+      "Micro": 0.982671,
+      "Small": 0.012749,
+      "Medium": 0.00458
     },
-    "G Handel": {
-      "Micro": 0.952325,
-      "Small": 0.040074,
-      "Medium": 0.007602
-    },
-    "H Vervoer en opslag": {
-      "Micro": 0.950923,
-      "Small": 0.038607,
-      "Medium": 0.01047
-    },
-    "I Horeca": {
-      "Micro": 0.914547,
-      "Small": 0.079568,
-      "Medium": 0.005885
-    },
-    "J Informatie en communicatie": {
-      "Micro": 0.971263,
-      "Small": 0.023314,
-      "Medium": 0.005424
-    },
-    "L Verhuur en handel van onroerend goed": {
-      "Micro": 0.982726,
-      "Small": 0.012702,
-      "Medium": 0.004573
-    },
-    "M Specialistische zakelijke diensten": {
-      "Micro": 0.986114,
-      "Small": 0.011947,
-      "Medium": 0.001938
-    },
-    "N Verhuur en overige zakelijke diensten": {
-      "Micro": 0.961326,
-      "Small": 0.029341,
-      "Medium": 0.009333
-    },
-    "Business Economy, B-N, excl. K, incl. 95": {
-      "Micro": 0.966164,
-      "Small": 0.027956,
-      "Medium": 0.00588
+    "Business Services (M-N)": {
+      "Micro": 0.981568,
+      "Small": 0.015038,
+      "Medium": 0.003393
     }
   }
 }
