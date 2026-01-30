@@ -29,9 +29,9 @@ export const defaultModelConfig: ModelConfig = {
   N: 10000,
   size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors_individual),
   age_shares: {
-    Young: 0.38,
-    Mature: 0.24,
-    Old: 0.38,
+    Young: 0.377,
+    Mature: 0.241,
+    Old: 0.382,
   },
   sector_shares: sectorDefaults.sector_shares,
   selected_sectors: sectorDefaults.sectors_individual,

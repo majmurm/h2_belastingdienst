@@ -335,7 +335,7 @@ def default_config() -> Dict[str, Any]:
     return {
         "N": 10000,
         "size_shares": {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053},
-        "age_shares": {"Young": 0.57, "Mature": 0.04, "Old": 0.39},
+        "age_shares": {"Young": 0.377, "Mature": 0.241, "Old": 0.382},
         "sector_shares": SECTOR_SHARES_DEFAULT,
         "selected_sectors": SECTOR_LIST,
         "C_target": 0.693,
