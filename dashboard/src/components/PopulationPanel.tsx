@@ -1,5 +1,5 @@
 import { ChevronRight, Info, AlertCircle, ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Tooltip } from "./Tooltip";
 import type { ModelConfig, SizeCategory, AgeCategory, SectorKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
@@ -22,7 +22,7 @@ const individualSectors = sectorDefaults.sectors_individual as SectorKey[];
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPanelProps) {
-  const [distributionType, setDistributionType] = useState<"reallife" | "manual">("reallife");
+  const [distributionType, setDistributionType] = useState<"reallife" | "manual">("manual");
   const [openSections, setOpenSections] = useState<{ size: boolean; age: boolean }>({
     size: false,
     age: false,
@@ -35,22 +35,9 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
   }, 0);
   const effectiveSectorShare = selectedSectorShare > 0 ? selectedSectorShare : 1;
   const realLifePopulation = Math.round(TOTAL_REAL_LIFE_POPULATION * effectiveSectorShare);
-  const initialPercent = Math.max(
-    0.1,
-    Math.min(5, Math.round((config.N / Math.max(1, realLifePopulation)) * 100 * 10) / 10),
-  );
-  const [agentPopulationPercentage, setAgentPopulationPercentage] = useState(initialPercent);
-
   const updateConfig = (partial: Partial<ModelConfig>) => {
     onConfigChange({ ...config, ...partial });
   };
-
-  useEffect(() => {
-    const nextN = Math.max(1, Math.round((realLifePopulation * agentPopulationPercentage) / 100));
-    if (config.N !== nextN) {
-      updateConfig({ N: nextN });
-    }
-  }, [agentPopulationPercentage, realLifePopulation, config.N]);
 
   const isAllSelected = individualSectors.every((sector) =>
     config.selected_sectors.includes(sector),
@@ -127,10 +114,9 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
     }
   };
 
-  const agentPopulationSize = useMemo(
-    () => Math.round((realLifePopulation * agentPopulationPercentage) / 100),
-    [agentPopulationPercentage, realLifePopulation],
-  );
+  const agentPopulationSize = config.N;
+  const agentPopulationPercentage = realLifePopulation > 0 ? (config.N / realLifePopulation) * 100 : 0;
+  const clampedPercentage = Math.max(0.1, Math.min(5, agentPopulationPercentage));
 
   const sizeTotal = Object.values(config.size_shares).reduce((sum, val) => sum + val, 0);
   const ageTotal = Object.values(config.age_shares).reduce((sum, val) => sum + val, 0);
@@ -297,23 +283,22 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="text-slate-700 font-medium">Agent Population (% of real-life population)</label>
-              <span className="text-blue-600 font-medium">{agentPopulationPercentage}%</span>
+              <span className="text-blue-600 font-medium">{agentPopulationPercentage.toFixed(1)}%</span>
             </div>
             <input
               type="range"
               min="0.1"
               max="5"
               step="0.1"
-              value={agentPopulationPercentage}
+              value={clampedPercentage}
               onChange={(e) => {
                 const percent = parseFloat(e.target.value);
                 if (Number.isNaN(percent)) return;
-                setAgentPopulationPercentage(percent);
                 updateConfig({ N: Math.max(1, Math.round((realLifePopulation * percent) / 100)) });
               }}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
               style={{
-                background: `linear-gradient(to right, #1e293b 0%, #1e293b ${((agentPopulationPercentage - 0.1) / (5 - 0.1)) * 100}%, #e2e8f0 ${((agentPopulationPercentage - 0.1) / (5 - 0.1)) * 100}%, #e2e8f0 100%)`
+                background: `linear-gradient(to right, #1e293b 0%, #1e293b ${((clampedPercentage - 0.1) / (5 - 0.1)) * 100}%, #e2e8f0 ${((clampedPercentage - 0.1) / (5 - 0.1)) * 100}%, #e2e8f0 100%)`
               }}
             />
             <div className="flex justify-between mt-2 text-xs text-slate-500">
@@ -329,6 +314,22 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
             </p>
           </div>
 
+          <div className="mb-6">
+            <label className="block text-slate-700 font-medium mb-2">Exact Agent Count</label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={config.N}
+              onChange={(e) => {
+                const next = Math.max(1, Math.floor(parseInt(e.target.value, 10) || 1));
+                updateConfig({ N: next });
+              }}
+              className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700"
+              style={{ borderRadius: "12px", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)" }}
+            />
+          </div>
+
           <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
             <div className="grid grid-cols-2 gap-6">
               <div>
@@ -341,10 +342,11 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
               <div>
                 <div className="text-slate-600 mb-1">Representation Ratio</div>
                 <div className="text-slate-900 font-bold text-2xl">
-                  1:{Math.round(100 / agentPopulationPercentage)}
+                  1:{agentPopulationPercentage > 0 ? Math.round(100 / agentPopulationPercentage) : "—"}
                 </div>
                 <div className="text-slate-500 text-sm mt-1">
-                  each agent represents ~{Math.round(100 / agentPopulationPercentage)} enterprises
+                  each agent represents ~
+                  {agentPopulationPercentage > 0 ? Math.round(100 / agentPopulationPercentage) : "—"} enterprises
                 </div>
               </div>
             </div>

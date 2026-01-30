@@ -8,6 +8,7 @@ import styles from "./StrategyPanel.module.css";
 interface StrategyPanelProps {
   config: ModelConfig;
   onConfigChange: (config: ModelConfig) => void;
+  onReset: () => void;
   onRun: () => void;
   onInterrupt: () => void;
   isRunning: boolean;
@@ -26,6 +27,7 @@ type ChannelTiming = { value: number; unit: TimingUnit };
 export function StrategyPanel({
   config,
   onConfigChange,
+  onReset,
   onRun,
   onInterrupt,
   isRunning,
@@ -34,15 +36,15 @@ export function StrategyPanel({
   const [auditRateInputs, setAuditRateInputs] = useState<Record<string, string>>({});
   const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>(
     config.audit_hour_price ?? {
-      Light: 20.11,
-      Standard: 20.11,
-      Deep: 20.11,
+      Light: 20,
+      Standard: 20,
+      Deep: 20,
     },
   );
   const [auditHours, setAuditHours] = useState<Record<AuditTypeKey, number>>(
     config.audit_hours ?? {
-      Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20.11)),
-      Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20.11)),
+      Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20)),
+      Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20)),
       Deep: 78,
     },
   );
@@ -206,6 +208,38 @@ export function StrategyPanel({
   }, [config.intervention_costs.email, config.intervention_costs.physical_letter]);
 
   useEffect(() => {
+    const schedule = config.communication_schedule ?? {};
+    const emailWeeks: ChannelTiming[] = [];
+    const letterWeeks: ChannelTiming[] = [];
+
+    Object.entries(schedule).forEach(([weekStr, channels]) => {
+      const week = Math.max(1, Math.min(52, Number(weekStr)));
+      (channels as string[]).forEach((channel) => {
+        if (channel === "email") {
+          emailWeeks.push({ value: week, unit: "weeks" });
+        }
+        if (channel === "physical_letter") {
+          letterWeeks.push({ value: week, unit: "weeks" });
+        }
+      });
+    });
+
+    emailWeeks.sort((a, b) => b.value - a.value);
+    letterWeeks.sort((a, b) => b.value - a.value);
+
+    setChannelEmail(emailWeeks.length > 0);
+    setChannelLetter(letterWeeks.length > 0);
+    setChannelTimings({
+      email: emailWeeks.length > 0 ? emailWeeks : [{ value: 1, unit: "weeks" }],
+      letter: letterWeeks.length > 0 ? letterWeeks : [{ value: 1, unit: "weeks" }],
+    });
+    setChannelFrequency({
+      email: Math.max(1, Math.min(4, emailWeeks.length || 1)),
+      letter: Math.max(1, Math.min(4, letterWeeks.length || 1)),
+    });
+  }, [config.communication_schedule]);
+
+  useEffect(() => {
     setWarningVisitWeekInput(config.warning_visit_week ? String(config.warning_visit_week) : "");
   }, [config.warning_visit_week]);
 
@@ -220,7 +254,7 @@ export function StrategyPanel({
 
   const resetAuditType = (type: AuditTypeKey) => {
     const defaultCost = defaultModelConfig.audit_types[type].cost;
-    const defaultPrice = 20.11;
+    const defaultPrice = 20;
     const defaultHours = Math.max(0, Math.round(defaultCost / defaultPrice));
     setAuditHourPrice((prev) => ({ ...prev, [type]: defaultPrice }));
     setAuditHours((prev) => ({ ...prev, [type]: defaultHours }));
@@ -247,6 +281,13 @@ export function StrategyPanel({
         <div className="flex items-center gap-2 mb-3">
           <span className="text-blue-600 px-2.5 py-1 bg-blue-50 rounded">Step 2</span>
           <h2 className="text-slate-900">Strategy Configuration</h2>
+          <div className="flex-1" />
+          <button
+            onClick={onReset}
+            className="px-3 py-1.5 text-sm bg-white border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50"
+          >
+            Reset to Defaults
+          </button>
         </div>
         <p className="text-slate-600">
           Configure audit programs, communication channels, and the weekly tax calendar.
@@ -667,7 +708,14 @@ export function StrategyPanel({
                         <div className="flex items-center gap-2">
                           <input type="number" min="0" max={AUDIT_RATE_MAX * 100} step="0.01"
                             value={auditRateInputs[`${size}-${age}`] ?? (config.audit_rates[`${size}-${age}`] * 100).toFixed(2)}
-                            onChange={(e) => setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: e.target.value }))}
+                            onChange={(e) => {
+                              const nextValue = e.target.value;
+                              setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: nextValue }));
+                              const raw = parseFloat(nextValue);
+                              if (!Number.isNaN(raw)) {
+                                updateAuditRate(size, age, raw);
+                              }
+                            }}
                             onBlur={(e) => {
                               const raw = parseFloat(e.target.value);
                               const pct = Number.isNaN(raw) ? 0 : raw;

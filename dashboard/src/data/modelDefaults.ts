@@ -27,11 +27,11 @@ const computeSizeSharesFromSectors = (selected: SectorKey[]) => {
 
 export const defaultModelConfig: ModelConfig = {
   N: 10000,
-  size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors_individual as SectorKey[]),
+  size_shares: computeSizeSharesFromSectors(sectorDefaults.sectors_individual),
   age_shares: {
-    Young: 0.377,
-    Mature: 0.241,
-    Old: 0.382,
+    Young: 0.38,
+    Mature: 0.24,
+    Old: 0.38,
   },
   sector_shares: sectorDefaults.sector_shares,
   selected_sectors: sectorDefaults.sectors_individual,
@@ -51,19 +51,19 @@ export const defaultModelConfig: ModelConfig = {
     "Medium-Old": 0.02,
   },
   audit_types: {
-    Light: { effect: 0.45, cost: 500.0 },
-    Standard: { effect: 0.9, cost: 775.0 },
-    Deep: { effect: 1.8, cost: 1570.0 },
+    Light: { effect: 0.9, cost: 2340 },
+    Standard: { effect: 0.9, cost: 2340 },
+    Deep: { effect: 1.8, cost: 4680 },
   },
   audit_hours: {
-    Light: Math.max(0, Math.round(500.0 / 20.11)),
-    Standard: Math.max(0, Math.round(775.0 / 20.11)),
-    Deep: 78,
+    Light: Math.max(0, Math.round(2340 / 60)),
+    Standard: Math.max(0, Math.round(2340 / 60)),
+    Deep: Math.max(0, Math.round(4680 / 60)),
   },
   audit_hour_price: {
-    Light: 20.11,
-    Standard: 20.11,
-    Deep: 20.11,
+    Light: 60,
+    Standard: 60,
+    Deep: 60,
   },
   channel_effects: {
     physical_letter: 0.003,
@@ -71,9 +71,9 @@ export const defaultModelConfig: ModelConfig = {
     warning_letter: 0.02,
   },
   intervention_costs: {
-    email: 0.05,
-    physical_letter: 0.85,
-    warning_letter: 20.96,
+    email: 0.39,
+    physical_letter: 0.65,
+    warning_letter: 196.84,
   },
   communication_schedule: {
     8: ["physical_letter", "email"],
@@ -87,7 +87,7 @@ export const defaultModelConfig: ModelConfig = {
   noncompliance_target_rate: 0.3,
   calibrate_baseline: true,
   underpayment_mean_if_noncompliant: null,
-  decay_factor: 0.0002,
+  decay_factor: 0.0005,
   seed: 42,
   n_neighbours: 4,
   steps: 208,

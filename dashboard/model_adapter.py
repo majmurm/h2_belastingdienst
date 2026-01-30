@@ -90,6 +90,23 @@ def _size_shares_for_sectors(selected: Iterable[str] | None) -> Dict[str, float]
     return {size: value / total for size, value in totals.items()}
 
 
+def _normalize_communication_schedule(schedule: Mapping[Any, Any] | None) -> Dict[int, list[str]]:
+    """Normalize communication schedule keys to int weeks and channels to strings."""
+    if not schedule:
+        return {}
+    normalized: Dict[int, list[str]] = {}
+    for key, channels in schedule.items():
+        try:
+            week = int(key)
+        except (TypeError, ValueError):
+            continue
+        if week <= 0:
+            continue
+        if isinstance(channels, (list, tuple)):
+            normalized[week] = [str(channel) for channel in channels]
+    return normalized
+
+
 def generate_network_gif(model: SMEComplianceModel, snapshots: list) -> str | None:
     """
     Generates a Base64 encoded GIF of the network evolution.
@@ -291,6 +308,12 @@ def collect_step_metrics(model: SMEComplianceModel) -> Dict[str, Any]:
         "mean_by_sector": mean_by_sector,
         "overall_audited_pct": float(model.total_audited_this_step) * 100.0,
         "high_compliance_pct": high_compliance_pct,
+        "noncompliance_ratio": float(model.compute_noncompliance_ratio())
+        if hasattr(model, "compute_noncompliance_ratio")
+        else 0.0,
+        "tax_gap_rate": float(model.compute_tax_gap_rate())
+        if hasattr(model, "compute_tax_gap_rate")
+        else 0.0,
         "tax_gap": compute_tax_gap(model),
         "total_cost": float(model.total_compliance_costs),
     }
@@ -310,9 +333,9 @@ def capture_state(model_instance, G_nodes):
 def default_config() -> Dict[str, Any]:
     """Dashboard defaults aligned with the existing frontend model contract."""
     return {
-        "N": 1000,
-        "size_shares": _size_shares_for_sectors(SECTOR_LIST),
-        "age_shares": {"Young": 0.377, "Mature": 0.241, "Old": 0.382},
+        "N": 10000,
+        "size_shares": {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053},
+        "age_shares": {"Young": 0.57, "Mature": 0.04, "Old": 0.39},
         "sector_shares": SECTOR_SHARES_DEFAULT,
         "selected_sectors": SECTOR_LIST,
         "C_target": 0.693,
@@ -330,35 +353,30 @@ def default_config() -> Dict[str, Any]:
             "Medium-Mature": 0.02,
             "Medium-Old": 0.02,
         },
-        # Define 3 types of audits with different effects and costs
-        "audit_types" : {
-            "Light": {"effect": 0.90, "cost": 2340},  # IH profit return check
-            "Standard": {"effect": 0.90, "cost": 2340},  # corporate income tax return check
-            "Deep": {
-                "effect": 1.80,
-                "cost": 4680,
-            },  # book audit
+        "audit_types": {
+            "Light": {"effect": 0.90, "cost": 2340},
+            "Standard": {"effect": 0.90, "cost": 2340},
+            "Deep": {"effect": 1.80, "cost": 4680},
         },
         "audit_hours": {
-            "Light": max(0, round(500.0 / 20.11)),
-            "Standard": max(0, round(775.0 / 20.11)),
-            "Deep": 78,
+            "Light": max(0, round(2340 / 60)),
+            "Standard": max(0, round(2340 / 60)),
+            "Deep": max(0, round(4680 / 60)),
         },
         "audit_hour_price": {
-            "Light": 20.11,
-            "Standard": 20.11,
-            "Deep": 20.11,
+            "Light": 60,
+            "Standard": 60,
+            "Deep": 60,
         },
         "channel_effects": {
             "physical_letter": 0.003,
             "email": 0.008,
             "warning_letter": 0.020,
         },
-        # Define Costs (in EUR)
-        "intervention_costs" : {
-            "email": 0.39,  
-            "physical_letter": 0.65,  
-            "warning_letter": 196.84, 
+        "intervention_costs": {
+            "email": 0.39,
+            "physical_letter": 0.65,
+            "warning_letter": 196.84,
         },
         "communication_schedule": {
             8: ["physical_letter", "email"],
@@ -374,7 +392,7 @@ def default_config() -> Dict[str, Any]:
         "decay_factor": 0.0005,
         "seed": 42,
         "n_neighbours": 4,
-        "steps": 260,
+        "steps": 208,
         "tax_deadline_week": 12,
         "audit_delay_weeks": 8,
         "warning_visit_week": 35,
@@ -449,6 +467,8 @@ def _average_steps(results_list: list[Mapping[str, Any]]) -> list[Dict[str, Any]
                 "mean_by_sector": _average_dicts([s["mean_by_sector"] for s in step_entries]),
                 "overall_audited_pct": float(np.mean([s["overall_audited_pct"] for s in step_entries])),
                 "high_compliance_pct": float(np.mean([s["high_compliance_pct"] for s in step_entries])),
+                "noncompliance_ratio": float(np.mean([s.get("noncompliance_ratio", 0.0) for s in step_entries])),
+                "tax_gap_rate": float(np.mean([s.get("tax_gap_rate", 0.0) for s in step_entries])),
                 "tax_gap": _average_tax_gap([s["tax_gap"] for s in step_entries]),
                 "total_cost": float(np.mean([s["total_cost"] for s in step_entries])),
             }
@@ -467,9 +487,13 @@ def _run_single_simulation(
     """Run the root model once and return the dashboard JSON payload."""
     audit_rates = _normalize_audit_rates(config.get("audit_rates", {}))
     selected_sectors = _normalize_selected_sectors(config.get("selected_sectors"))
-    sector_shares = _sector_shares_for_selection(selected_sectors)
-    size_shares = _size_shares_for_sectors(selected_sectors)
+    sector_shares = dict(config.get("sector_shares") or _sector_shares_for_selection(selected_sectors))
+    size_shares = dict(config.get("size_shares") or _size_shares_for_sectors(selected_sectors))
     age_shares = dict(config["age_shares"])
+
+    communication_schedule = _normalize_communication_schedule(
+        config.get("communication_schedule", {})
+    )
 
     model = SMEComplianceModel(
         N=int(config["N"]),
@@ -483,7 +507,7 @@ def _run_single_simulation(
         audit_types=dict(config["audit_types"]),
         channel_effects=dict(config["channel_effects"]),
         intervention_costs=dict(config["intervention_costs"]),
-        communication_schedule=dict(config.get("communication_schedule", {})),
+        communication_schedule=communication_schedule,
         tax_gap_target_rate=float(config.get("tax_gap_target_rate", 0.05)),
         noncompliance_target_rate=float(config.get("noncompliance_target_rate", 0.30)),
         calibrate_baseline=bool(config.get("calibrate_baseline", True)),
@@ -568,6 +592,7 @@ def _run_single_simulation(
     return {
         "config": {
             **dict(config),
+            "communication_schedule": communication_schedule,
             "sector_shares": sector_shares,
             "selected_sectors": selected_sectors,
             "size_shares": size_shares,

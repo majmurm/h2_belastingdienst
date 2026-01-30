@@ -12,11 +12,12 @@ import type { ModelConfig, ModelResults } from './data/modelTypes';
 import type { RunRecord } from './data/runHistory';
 
 export default function App() {
+  const freshDefaultConfig = () => JSON.parse(JSON.stringify(defaultModelConfig)) as ModelConfig;
   const [activeView, setActiveView] = useState<'population' | 'strategy' | 'results' | 'compare' | 'history' | 'information'>('population');
   const [currentStep, setCurrentStep] = useState(1);
   const [comparisonRunIds, setComparisonRunIds] = useState<[string, string]>(['current', 'current']);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [modelConfig, setModelConfig] = useState<ModelConfig>(defaultModelConfig);
+  const [modelConfig, setModelConfig] = useState<ModelConfig>(freshDefaultConfig());
   const [modelResults, setModelResults] = useState<ModelResults | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -173,6 +174,10 @@ export default function App() {
     }
   };
 
+  const handleResetConfig = () => {
+    setModelConfig(freshDefaultConfig());
+  };
+
   const handleInterruptRun = () => {
     abortControllerRef.current?.abort();
   };
@@ -275,6 +280,7 @@ export default function App() {
           <StrategyPanel
             config={modelConfig}
             onConfigChange={setModelConfig}
+            onReset={handleResetConfig}
             onRun={handleRunSimulation}
             onInterrupt={handleInterruptRun}
             isRunning={isRunning}

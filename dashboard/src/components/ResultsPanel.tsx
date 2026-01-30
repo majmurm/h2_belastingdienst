@@ -402,6 +402,126 @@ export function ResultsPanel({
           </div>
 
           <div className="mb-8">
+            <details className="bg-white rounded-lg border border-slate-200">
+              <summary className="cursor-pointer list-none px-6 py-4 text-slate-900 text-md font-medium flex items-center justify-between">
+                <span>Detailed Results</span>
+                <span className="text-slate-400 text-sm">Show details</span>
+              </summary>
+              <div className="px-6 pb-8">
+                <div className="grid grid-cols-2 gap-6 text-sm">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-slate-700 font-medium mb-2">Initial Propensity</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Total Mean</span>
+                          <span className="text-slate-900">
+                            {results.initial.overall_mean.toFixed(3)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Non-compliance Ratio</span>
+                          <span className="text-slate-900">
+                            {initialStep?.noncompliance_ratio !== undefined
+                              ? (initialStep.noncompliance_ratio * 100).toFixed(1) + "%"
+                              : "-"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Tax Gap Rate</span>
+                          <span className="text-slate-900">
+                            {initialStep?.tax_gap_rate !== undefined
+                              ? (initialStep.tax_gap_rate * 100).toFixed(1) + "%"
+                              : (results.initial.tax_gap.gap_pct * 100).toFixed(1) + "%"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-slate-700 font-medium mb-2">Initial Mean by Group</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(results.initial.mean_by_group).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-2 bg-slate-50 rounded px-2 py-1">
+                            <span>{key}</span>
+                            <span className="text-slate-900">{value.toFixed(3)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-slate-700 font-medium mb-2">Model Parameters</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">C target</span>
+                          <span className="text-slate-900">{selectedConfig.C_target.toFixed(3)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Audit Effects</span>
+                          <span className="text-slate-900">
+                            Light {selectedConfig.audit_types.Light.effect.toFixed(2)} · Standard{" "}
+                            {selectedConfig.audit_types.Standard.effect.toFixed(2)} · Deep{" "}
+                            {selectedConfig.audit_types.Deep.effect.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Channel Effects</span>
+                          <span className="text-slate-900">
+                            Email {selectedConfig.channel_effects.email.toFixed(3)} · Physical{" "}
+                            {selectedConfig.channel_effects.physical_letter.toFixed(3)} · Warning{" "}
+                            {selectedConfig.channel_effects.warning_letter.toFixed(3)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Decay Factor</span>
+                          <span className="text-slate-900">
+                            {typeof selectedConfig.decay_factor === "number"
+                              ? selectedConfig.decay_factor.toFixed(5)
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-slate-700 font-medium mb-2">Tax Gap Totals</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Initial Tax Gap</span>
+                          <span className="text-slate-900">
+                            {formatCurrency(results.initial.tax_gap.total_gap)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Tax Gap After</span>
+                          <span className="text-slate-900">
+                            {formatCurrency(results.final.tax_gap.total_gap)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Total Intervention Cost</span>
+                          <span className="text-slate-900">
+                            {results.summary ? formatCurrency(results.summary.total_cost) : "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Net Benefit</span>
+                          <span className="text-slate-900">
+                            {results.summary ? formatCurrency(results.summary.net_benefit) : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div className="mb-8">
             <h3 className="text-slate-900 text-md font-medium mb-4">Key Performance Indicators</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-slate-200 p-6">
