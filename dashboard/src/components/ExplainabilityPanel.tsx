@@ -53,7 +53,7 @@ export function ExplainabilityPanel() {
                 <span className="text-red-600">+0.28</span>
               </div>
               <p className="text-slate-600">
-                Stronger audit types (Deep, Standard) produce larger one-shot compliance gains.
+                Stronger audit types (Deep book, Corporate income tax) produce larger one-shot compliance gains.
               </p>
             </div>
             <div>

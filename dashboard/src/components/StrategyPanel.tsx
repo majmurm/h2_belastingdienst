@@ -18,6 +18,11 @@ interface StrategyPanelProps {
 const sizeOrder: SizeCategory[] = ["Micro", "Small", "Medium"];
 const ageOrder: AgeCategory[] = ["Young", "Mature", "Old"];
 const auditTypeOrder: AuditTypeKey[] = ["Light", "Standard", "Deep"];
+const auditTypeLabels: Record<AuditTypeKey, string> = {
+  Light: "Revenue tax",
+  Standard: "Corporate income tax",
+  Deep: "Deep book",
+};
 const AUDIT_RATE_MAX = 0.05;
 const AUDIT_COST_MAX = 5000;
 
@@ -36,16 +41,16 @@ export function StrategyPanel({
   const [auditRateInputs, setAuditRateInputs] = useState<Record<string, string>>({});
   const [auditHourPrice, setAuditHourPrice] = useState<Record<AuditTypeKey, number>>(
     config.audit_hour_price ?? {
-      Light: 20,
-      Standard: 20,
-      Deep: 20,
+      Light: 60,
+      Standard: 60,
+      Deep: 60,
     },
   );
   const [auditHours, setAuditHours] = useState<Record<AuditTypeKey, number>>(
     config.audit_hours ?? {
-      Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 20)),
-      Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 20)),
-      Deep: 78,
+      Light: Math.max(0, Math.round(defaultModelConfig.audit_types.Light.cost / 60)),
+      Standard: Math.max(0, Math.round(defaultModelConfig.audit_types.Standard.cost / 60)),
+      Deep: Math.max(0, Math.round(defaultModelConfig.audit_types.Deep.cost / 60)),
     },
   );
 
@@ -254,7 +259,7 @@ export function StrategyPanel({
 
   const resetAuditType = (type: AuditTypeKey) => {
     const defaultCost = defaultModelConfig.audit_types[type].cost;
-    const defaultPrice = 20;
+    const defaultPrice = 60;
     const defaultHours = Math.max(0, Math.round(defaultCost / defaultPrice));
     setAuditHourPrice((prev) => ({ ...prev, [type]: defaultPrice }));
     setAuditHours((prev) => ({ ...prev, [type]: defaultHours }));
@@ -637,7 +642,7 @@ export function StrategyPanel({
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Audit Types</h3>
-            <Tooltip content="Define effect and cost inputs for Light, Standard, and Deep audits.">
+            <Tooltip content="Define effect and cost inputs for Revenue tax, Corporate income tax, and Deep book audits.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
@@ -645,7 +650,7 @@ export function StrategyPanel({
             {auditTypeOrder.map((type) => (
               <div key={type} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-slate-700 font-medium">{type}</div>
+                  <div className="text-slate-700 font-medium">{auditTypeLabels[type]}</div>
                   <button type="button" onClick={() => resetAuditType(type)} className="text-slate-500 hover:text-slate-900">
                     <RotateCcw className="w-4 h-4" />
                   </button>

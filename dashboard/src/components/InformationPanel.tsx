@@ -67,8 +67,8 @@ export function InformationPanel() {
             agent’s compliance probability is updated. Compliance can increase from communications or decay naturally. 
             The decaying factor d reflects how
             strongly compliance decays in the absence of interaction with the Tax Authority.
-            Audits occur during a yearly campaign week and can be Light, Standard, or Deep with
-            different effects and costs. Communications include physical letters, emails, and
+            Audits occur during a yearly campaign week and can be Revenue tax, Corporate income tax,
+            or Deep book with different effects and costs. Communications include physical letters, emails, and
             targeted warning letters, each with distinct effects and costs.
           </p>
         </div>

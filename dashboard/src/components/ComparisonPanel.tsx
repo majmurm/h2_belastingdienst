@@ -38,6 +38,12 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
         return channel.replace(/_/g, " ");
     }
   };
+  const auditTypeLabel = (key: string) => {
+    if (key === "Light") return "Revenue tax";
+    if (key === "Standard") return "Corporate income tax";
+    if (key === "Deep") return "Deep book";
+    return key;
+  };
 
   const formatMaybeNumber = (value?: number, digits = 3) =>
     typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "-";
@@ -194,7 +200,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 <div className="space-y-2">
                   {Object.entries(strategyA.config.audit_types).map(([key, value]) => (
                     <div key={key} className="flex justify-between">
-                      <span>{key}:</span>
+                      <span>{auditTypeLabel(key)}:</span>
                       <span className="text-slate-900">{formatMaybeNumber(value.effect, 2)}</span>
                     </div>
                   ))}
@@ -207,7 +213,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               <div className="space-y-2">
                 {Object.entries(strategyA.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
-                    <span>{key}:</span>
+                    <span>{auditTypeLabel(key)}:</span>
                     <span className="text-slate-900">
                       {strategyA.config.audit_hours?.[key as keyof typeof strategyA.config.audit_hours] ?? "-"}h · €
                       {strategyA.config.audit_hour_price?.[key as keyof typeof strategyA.config.audit_hour_price] ?? "-"}
@@ -368,7 +374,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
                 <div className="space-y-2">
                   {Object.entries(strategyB.config.audit_types).map(([key, value]) => (
                     <div key={key} className="flex justify-between">
-                      <span>{key}:</span>
+                      <span>{auditTypeLabel(key)}:</span>
                       <span className="text-slate-900">{formatMaybeNumber(value.effect, 2)}</span>
                     </div>
                   ))}
@@ -381,7 +387,7 @@ export function ComparisonPanel({ runs, initialRunIds }: ComparisonPanelProps) {
               <div className="space-y-2">
                 {Object.entries(strategyB.config.audit_types).map(([key]) => (
                   <div key={key} className="flex justify-between">
-                    <span>{key}:</span>
+                    <span>{auditTypeLabel(key)}:</span>
                     <span className="text-slate-900">
                       {strategyB.config.audit_hours?.[key as keyof typeof strategyB.config.audit_hours] ?? "-"}h · €
                       {strategyB.config.audit_hour_price?.[key as keyof typeof strategyB.config.audit_hour_price] ?? "-"}

@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { Clock, Download, AlertCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ModelConfig, ModelResults, GroupKey, TaxGapEntry } from "../data/modelTypes";
+import type { ModelConfig, ModelResults, GroupKey, TaxGapEntry, AuditTypeKey } from "../data/modelTypes";
 import { defaultModelConfig } from "../data/modelDefaults";
 
 
@@ -38,6 +38,12 @@ const groupOptions: { key: GroupKey | "overall"; label: string; color: string }[
   { key: "Medium-Mature", label: "Medium & Mature", color: "#6366f1" },
   { key: "Medium-Old", label: "Medium & Old", color: "#10b981" },
 ];
+
+const auditTypeLabels: Record<AuditTypeKey, string> = {
+  Light: "Revenue tax",
+  Standard: "Corporate income tax",
+  Deep: "Deep book",
+};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(
@@ -462,9 +468,9 @@ export function ResultsPanel({
                         <div className="flex justify-between">
                           <span className="text-slate-600">Audit Effects</span>
                           <span className="text-slate-900">
-                            Light {selectedConfig.audit_types.Light.effect.toFixed(2)} · Standard{" "}
-                            {selectedConfig.audit_types.Standard.effect.toFixed(2)} · Deep{" "}
-                            {selectedConfig.audit_types.Deep.effect.toFixed(2)}
+                            {auditTypeLabels.Light} {selectedConfig.audit_types.Light.effect.toFixed(2)} ·{" "}
+                            {auditTypeLabels.Standard} {selectedConfig.audit_types.Standard.effect.toFixed(2)} ·{" "}
+                            {auditTypeLabels.Deep} {selectedConfig.audit_types.Deep.effect.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -579,19 +585,19 @@ export function ResultsPanel({
                     <h4 className="text-slate-700 font-medium mb-2">Audit Hours & FTE Price</h4>
                     <div className="space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Light</span>
+                        <span className="text-slate-600">{auditTypeLabels.Light}</span>
                         <span className="text-slate-900">
                           {auditHours.Light}h × {formatCurrencyTwoDecimals(auditHourPrice.Light)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Standard</span>
+                        <span className="text-slate-600">{auditTypeLabels.Standard}</span>
                         <span className="text-slate-900">
                           {auditHours.Standard}h × {formatCurrencyTwoDecimals(auditHourPrice.Standard)}
                         </span>
                       </div>
                       <div className="flex justify-between mb-3">
-                        <span className="text-slate-600">Deep</span>
+                        <span className="text-slate-600">{auditTypeLabels.Deep}</span>
                         <span className="text-slate-900">
                           {auditHours.Deep}h × {formatCurrencyTwoDecimals(auditHourPrice.Deep)}
                         </span>
