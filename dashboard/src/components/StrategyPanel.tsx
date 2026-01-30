@@ -130,14 +130,23 @@ export function StrategyPanel({
   };
 
   const handleChannelFrequencyChange = (channel: "email" | "letter", value: number) => {
-    const next = Math.max(1, Math.min(4, value));
+    const next = Math.max(1, Math.min(4, Math.round(value)));
     setChannelFrequency((prev) => ({ ...prev, [channel]: next }));
 
     let nextTimings = { ...channelTimings };
     const list = [...channelTimings[channel]];
     
     if (list.length < next) {
-      const toAdd = Array.from({ length: next - list.length }, () => ({ value: 1, unit: "weeks" as TimingUnit }));
+      const used = new Set(list.map((entry) => entry.value));
+      const toAdd: ChannelTiming[] = [];
+      let candidate = 1;
+      while (toAdd.length < next - list.length && candidate <= 52) {
+        if (!used.has(candidate)) {
+          toAdd.push({ value: candidate, unit: "weeks" as TimingUnit });
+          used.add(candidate);
+        }
+        candidate += 1;
+      }
       nextTimings = { ...nextTimings, [channel]: [...list, ...toAdd] };
     } else if (list.length > next) {
       nextTimings = { ...nextTimings, [channel]: list.slice(0, next) };
@@ -255,6 +264,12 @@ export function StrategyPanel({
     const rate = Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100));
     const updated = { ...config.audit_rates, [key]: rate };
     updateConfig({ audit_rates: updated });
+  };
+
+  const parsePercentInput = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const value = parseFloat(normalized);
+    return Number.isNaN(value) ? null : value;
   };
 
   const resetAuditType = (type: AuditTypeKey) => {
@@ -385,9 +400,9 @@ export function StrategyPanel({
                       type="range"
                       min="1"
                       max="4"
-                      step="1"
+                      step="0.1"
                       value={channelFrequency.email}
-                      onChange={(e) => handleChannelFrequencyChange("email", parseInt(e.target.value) || 1)}
+                      onChange={(e) => handleChannelFrequencyChange("email", parseFloat(e.target.value) || 1)}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                       style={{
                         background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
@@ -444,9 +459,9 @@ export function StrategyPanel({
                       type="range"
                       min="1"
                       max="4"
-                      step="1"
+                      step="0.1"
                       value={channelFrequency.letter}
-                      onChange={(e) => handleChannelFrequencyChange("letter", parseInt(e.target.value) || 1)}
+                      onChange={(e) => handleChannelFrequencyChange("letter", parseFloat(e.target.value) || 1)}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                       style={{
                         background: `linear-gradient(to right, #1e293b 0%, #1e293b ${
@@ -671,7 +686,7 @@ export function StrategyPanel({
                   </div>
                   <div>
                     <label className="text-slate-600 text-sm block mb-1">FTE hour price</label>
-                    <input type="number" min="0" step="0.01" value={auditHourPrice[type]}
+                    <input type="number" min="0" step="0.01" placeholder="60" value={auditHourPrice[type]}
                       onChange={(e) => {
                         const next = parseFloat(e.target.value) || 0;
                         setAuditHourPrice((prev) => ({ ...prev, [type]: next }));
@@ -716,14 +731,10 @@ export function StrategyPanel({
                             onChange={(e) => {
                               const nextValue = e.target.value;
                               setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: nextValue }));
-                              const raw = parseFloat(nextValue);
-                              if (!Number.isNaN(raw)) {
-                                updateAuditRate(size, age, raw);
-                              }
                             }}
                             onBlur={(e) => {
-                              const raw = parseFloat(e.target.value);
-                              const pct = Number.isNaN(raw) ? 0 : raw;
+                              const parsed = parsePercentInput(e.target.value);
+                              const pct = parsed === null ? 0 : parsed;
                               updateAuditRate(size, age, pct);
                               setAuditRateInputs((prev) => ({ ...prev, [`${size}-${age}`]: (Math.max(0, Math.min(AUDIT_RATE_MAX, pct / 100)) * 100).toFixed(2) }));
                             }}

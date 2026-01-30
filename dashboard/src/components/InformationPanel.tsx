@@ -51,8 +51,13 @@ export function InformationPanel() {
               <li>C<sub>0</sub> = 0.693</li>
               <li>m<sub>size</sub> = 0.05</li>
               <li>m<sub>age</sub> = 0.05</li>
-              <li>natural decay factor d = 0.00005</li>
-              <li>&#954; = 339, based on a desired within-category standard deviation (SD = 0.025) using: &#954; &#2248; &#956;(1−&#956;) / SD<sup>2</sup> − 1</li>
+              <li>natural decay factor d = 0.0005</li>
+              <li>
+                &#954; = 339, based on a desired within-category standard deviation (SD = 0.025) using:&nbsp;
+                <span className="font-mono text-slate-800">
+                  &#954; &#8776; (&#956;(1−&#956;)/(SD<sup>2</sup>)) − 1
+                </span>
+              </li>
             </ul>
             </p>
         </div>

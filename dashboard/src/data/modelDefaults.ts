@@ -90,7 +90,7 @@ export const defaultModelConfig: ModelConfig = {
   decay_factor: 0.0005,
   seed: 42,
   n_neighbours: 4,
-  steps: 208,
+  steps: 260,
   tax_deadline_week: 12,
   audit_delay_weeks: 8,
   warning_visit_week: 35,
