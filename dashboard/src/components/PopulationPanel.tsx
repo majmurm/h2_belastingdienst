@@ -165,7 +165,7 @@ export function PopulationPanel({ config, onConfigChange, onNext }: PopulationPa
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <div className="flex items-center gap-2 mb-6">
             <h3 className="text-slate-900 text-md font-medium">Business Sectors</h3>
-            <Tooltip content="Select sectors to compute sector-weighted size shares and run sector-specific reporting. More information about sectors in “Information about the model”.">
+            <Tooltip content="Select sectors to compute sector-weighted size shares. More information about sectors in “Information about the model”.">
               <Info className="w-4 h-4 text-slate-400 cursor-help" />
             </Tooltip>
           </div>
