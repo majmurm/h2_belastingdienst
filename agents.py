@@ -81,16 +81,20 @@ class SMEAgent(Agent):
         3. Randomly
         """
         comm_effect = 0
-        # After an agent is audited, its compliance drops
-        if self.model.step_count - self.last_audit_step == 1:
+
+        # After an agent is audited, its compliance can drop (Bomb-Crater effect) with a 50/50 chance
+        if (
+            self.model.step_count - self.last_audit_step == 1
+            and self.model.rng.random() < 0.5
+        ):
             comm_effect -= 0.5
 
         for neighbor in self.cell.neighborhood:
             communicator = neighbor.agents[0]
             time_since_audit = communicator.last_audit_step - self.model.step_count
 
-            # 1. After a neighbor is audited, it is communicated with other neighbors (part
-            # of Bomb-Crater effect). This has its own decay effect
+            # 1. After a neighbor is audited, it is communicated with other neighbors 
+            # This has its own decay effect
             if time_since_audit == 1:
                 comm_effect += 0.0005
 
