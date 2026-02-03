@@ -104,8 +104,8 @@ class SMEAgent(Agent):
 
             # 2. Once the tax deadline comes close, agents are more likely to discuss taxes,
             # with more intensity as the deadline comes close
-            elif self.model.rng.random() < (52 - self.model.current_week) / 52:
-                comm_effect += 0.000005 * (52 - self.model.current_week)
+            elif self.model.rng.random() < (52 - self.model.weeks_until_deadline) / 52:
+                comm_effect += 0.0000005 * (52 - self.model.weeks_until_deadline)
 
             # 3. Agents can also randomly discuss their taxes, per week a chance of 1/52
             elif self.model.rng.random() < 1 / 52:
