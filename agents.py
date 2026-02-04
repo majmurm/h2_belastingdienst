@@ -43,7 +43,7 @@ class SMEAgent(Agent):
             has_advisor
             cell
         """
-        super().__init__(model)
+        super().__init__(unique_id=model.next_id(), model=model)
         self.size_cat = size_cat
         self.age_cat = age_cat
         self.propensity = propensity
