@@ -76,7 +76,7 @@ app.get('/api/model/progress', async (req, res) => {
 });
 
 // 4. Catch-all: Serve index.html for any other requests (SPA support)
-app.get('*', (req, res) => {
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
