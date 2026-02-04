@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 
 from mesa import Model, DataCollector
-from mesa.discrete_space import Network
+from mesa import Network
 from agents import SMEAgent
 
 
