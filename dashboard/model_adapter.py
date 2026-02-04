@@ -18,6 +18,16 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
+import sys
+try:
+    import mesa
+    print(f"DEBUG_CHECK: Running Mesa version: {mesa.__version__}", file=sys.stderr)
+    print(f"DEBUG_CHECK: Mesa location: {mesa.__file__}", file=sys.stderr)
+except ImportError:
+    print("DEBUG_CHECK: Mesa is not installed!", file=sys.stderr)
+except Exception as e:
+    print(f"DEBUG_CHECK: Error checking mesa: {e}", file=sys.stderr)
+
 import matplotlib
 import matplotlib.pyplot as plt
 import networkx as nx
