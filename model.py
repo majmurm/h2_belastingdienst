@@ -204,7 +204,7 @@ class SMEComplianceModel(Model):
         prob = self.n_neighbours / self.N
         graph = nx.erdos_renyi_graph(n=self.N, p=prob, seed=seed) # What's an 'erdos_renyi graph'?
         self.grid = Network(graph)
-        cells = list(self.grid.all_cells)
+        cells = list(self.grid.G.nodes())
 
         # Add other characteristics to the agents
         for i in range(N):
