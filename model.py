@@ -483,6 +483,7 @@ class SMEComplianceModel(Model):
         
         # Calculate weeks remaining until deadline
         weeks_until_deadline = self.tax_deadline_week - current_week
+        self.weeks_until_deadline = weeks_until_deadline
         
         # Reset weekly flags
         self.is_high_urgency_week = False
