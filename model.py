@@ -17,26 +17,17 @@ print(f"DEBUG: Mesa location: {mesa.__file__}")
 
 # Check what's in mesa.space
 try:
-    import mesa.space
-    print(f"DEBUG: mesa.space contents: {dir(mesa.space)}")
-except Exception as e:
-    print(f"DEBUG: Error importing mesa.space: {e}")
-
-# Check if discrete_space exists
-try:
-    import mesa.discrete_space
-    print(f"DEBUG: mesa.discrete_space exists!")
-    print(f"DEBUG: mesa.discrete_space contents: {dir(mesa.discrete_space)}")
-except Exception as e:
-    print(f"DEBUG: mesa.discrete_space doesn't exist: {e}")
-
-# Check if experimental exists
-try:
-    import mesa.experimental.cell_space
-    print(f"DEBUG: mesa.experimental.cell_space exists!")
-    print(f"DEBUG: contents: {dir(mesa.experimental.cell_space)}")
-except Exception as e:
-    print(f"DEBUG: mesa.experimental.cell_space doesn't exist: {e}")
+    from mesa.discrete_space import Network
+    print("DEBUG: ✓ Using mesa.discrete_space.Network", flush=True)
+except ImportError as e1:
+    print(f"DEBUG: ✗ mesa.discrete_space.Network failed: {e1}", flush=True)
+    try:
+        from mesa.space import Network
+        print("DEBUG: ✓ Using mesa.space.Network", flush=True)
+    except ImportError as e2:
+        print(f"DEBUG: ✗ mesa.space.Network failed: {e2}", flush=True)
+        from mesa.space import NetworkGrid as Network
+        print("DEBUG: ✓ Using mesa.space.NetworkGrid as Network", flush=True)
 
 from mesa import Model, DataCollector
 from agents import SMEAgent
