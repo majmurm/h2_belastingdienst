@@ -1,8 +1,13 @@
-# Use a base image that has Node.js installed
-FROM node:18-bullseye
+# Use Python 3.12 as base
+FROM python:3.12-slim
 
-# Install Python 3 and pip
-RUN apt-get update && apt-get install -y python3 python3-pip
+# Install Node.js 18
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
