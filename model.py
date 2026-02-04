@@ -11,8 +11,35 @@ from random import random
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 
+import mesa
+print(f"DEBUG: Mesa version: {mesa.__version__}")
+print(f"DEBUG: Mesa location: {mesa.__file__}")
+
+# Check what's in mesa.space
+try:
+    import mesa.space
+    print(f"DEBUG: mesa.space contents: {dir(mesa.space)}")
+except Exception as e:
+    print(f"DEBUG: Error importing mesa.space: {e}")
+
+# Check if discrete_space exists
+try:
+    import mesa.discrete_space
+    print(f"DEBUG: mesa.discrete_space exists!")
+    print(f"DEBUG: mesa.discrete_space contents: {dir(mesa.discrete_space)}")
+except Exception as e:
+    print(f"DEBUG: mesa.discrete_space doesn't exist: {e}")
+
+# Check if experimental exists
+try:
+    import mesa.experimental.cell_space
+    print(f"DEBUG: mesa.experimental.cell_space exists!")
+    print(f"DEBUG: contents: {dir(mesa.experimental.cell_space)}")
+except Exception as e:
+    print(f"DEBUG: mesa.experimental.cell_space doesn't exist: {e}")
+
 from mesa import Model, DataCollector
-from mesa.space import NetworkGrid
+from mesa.discrete_space import Network
 from agents import SMEAgent
 
 
