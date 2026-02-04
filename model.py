@@ -39,7 +39,6 @@ except Exception as e:
     print(f"DEBUG: mesa.experimental.cell_space doesn't exist: {e}")
 
 from mesa import Model, DataCollector
-from mesa.discrete_space import Network
 from agents import SMEAgent
 
 
