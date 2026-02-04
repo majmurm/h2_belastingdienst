@@ -11,25 +11,8 @@ from random import random
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 
-import mesa
-print(f"DEBUG: Mesa version: {mesa.__version__}")
-print(f"DEBUG: Mesa location: {mesa.__file__}")
-
-# Check what's in mesa.space
-try:
-    from mesa.discrete_space import Network
-    print("DEBUG: ✓ Using mesa.discrete_space.Network", flush=True)
-except ImportError as e1:
-    print(f"DEBUG: ✗ mesa.discrete_space.Network failed: {e1}", flush=True)
-    try:
-        from mesa.space import Network
-        print("DEBUG: ✓ Using mesa.space.Network", flush=True)
-    except ImportError as e2:
-        print(f"DEBUG: ✗ mesa.space.Network failed: {e2}", flush=True)
-        from mesa.space import NetworkGrid as Network
-        print("DEBUG: ✓ Using mesa.space.NetworkGrid as Network", flush=True)
-
 from mesa import Model, DataCollector
+from mesa.discrete_space import Network
 from agents import SMEAgent
 
 
@@ -203,8 +186,8 @@ class SMEComplianceModel(Model):
         # Create network structure to populate with agents
         prob = self.n_neighbours / self.N
         graph = nx.erdos_renyi_graph(n=self.N, p=prob, seed=seed) # What's an 'erdos_renyi graph'?
-        self.grid = Network(graph)
-        cells = list(self.grid.G.nodes())
+        self.grid = Network(G=graph, capacity=1, random=self.random)
+        cells = list(self.grid.all_cells)
 
         # Add other characteristics to the agents
         for i in range(N):
