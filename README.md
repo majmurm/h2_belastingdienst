@@ -89,8 +89,8 @@ Open: `http://localhost:7071`
 
 ## 📚 Key Files
 
-- `model.py` – core simulation
-- `agents.py` – agent definitions
-- `report_results.py` – reference model run output
+- `model_final.py` – core simulation
+- `agents_final.py` – agent definitions
+- `report_results_final.py` – reference model run output
 - `dashboard/model_adapter.py` – adapter used by the dashboard API
 - `dashboard/scripts/model-server.mjs` – API + static frontend server
