@@ -111,10 +111,10 @@ channel_effects = {
 
 # Define 3 types of audits with different effects and costs
 audit_types = {
-    "Light": {"effect": 0.90, "cost": 2340},  # IH profit return check
-    "Standard": {"effect": 0.90, "cost": 2340},  # corporate income tax return check
+    "Light": {"effect": 0.45, "cost": 2340},  # IH profit return check
+    "Standard": {"effect": 0.45, "cost": 2340},  # corporate income tax return check
     "Deep": {
-        "effect": 1.80,
+        "effect": 0.9,
         "cost": 4680,
     },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
     # official source Belastingdienst: Scale 8, step 5 EUR3643 --> 1 FTE hr = EUR 21.07
