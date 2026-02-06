@@ -8,14 +8,16 @@ the consistency of the model output produced.
 from model import SMEComplianceModel
 import pandas as pd
 from tqdm import tqdm
-import os
+from collections import defaultdict
+
 
 # Demographics
 size_shares_default = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
-age_shares_default = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
+age_shares_default = {"Young": 0.377, "Mature": 0.241, "Old": 0.382}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target_default = 0.693
+
 
 audit_rates_default = {
     ("Micro", "Young"): 0.02,
@@ -29,6 +31,7 @@ audit_rates_default = {
     ("Medium", "Old"): 0.02,
 }
 
+
 # Distinct effects for different channels
 # Original 'commun_param' was 0.008. We scale around that.
 channel_effects_default = {
@@ -39,19 +42,19 @@ channel_effects_default = {
 
 # Define 3 types of audits with different effects and costs
 audit_types_default = {
-    "Light": {"effect": 0.45, "cost": 500.0},  # IH profit return check
-    "Standard": {"effect": 0.90, "cost": 775.0},  # corporate income tax return check
+    "Light": {"effect": 0.45, "cost": 2340.0},  # IH profit return check
+    "Standard": {"effect": 0.45, "cost": 2340.0},  # corporate income tax return check
     "Deep": {
-        "effect": 1.80,
-        "cost": 1570.0,
+        "effect": 0.9,
+        "cost": 4680.0,
     },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
 }
 
 # Define Costs (in EUR)
 intervention_costs_default = {
-    "email": 0.05,  # Minimal system cost
-    "physical_letter": 0.85,  # Print + Postage
-    "warning_letter": 20.96,  # Letter + ~1hr FTE for hand delivery
+    "email": 0.39,  # Minimal system cost
+    "physical_letter": 0.65,  # Print + Postage
+    "warning_letter": 196.84,  # Letter + ~1hr FTE for hand delivery
 }
 
 # Communication schedule
@@ -63,6 +66,33 @@ communication_schedule_default = {
         "email"
     ],  # Automatically becomes urgent (2x effect), because it is one week before the deadline
 }
+
+# communication_schedule_default = {week: ["physical_letter"] for week in range(52)}
+
+
+def report_tax_gap(model):
+    """
+    Calculates the difference between Potential and Actual Tax Revenue.
+    """
+
+    total_potential = 0.0
+    total_actual = 0.0
+    gap_by_size = defaultdict(lambda: {"potential": 0.0, "actual": 0.0})
+
+    for a in model.agents:
+        potential = a.turnover * a.tax_rate
+        # Expected (on-time) payment under the incidence–intensity mapping
+        unpaid = model.expected_unpaid_tax(a)
+        actual = potential - unpaid
+
+        total_potential += potential
+        total_actual += actual
+
+        gap_by_size[a.size_cat]["potential"] += potential
+        gap_by_size[a.size_cat]["actual"] += actual
+
+    return total_potential - total_actual
+
 
 def run_simulation(
     N,
@@ -92,16 +122,19 @@ def run_simulation(
         channel_effects=channel_effects_sim,
         intervention_costs=intervention_costs_sim,
         communication_schedule=communication_schedule_sim,
-        decay_factor=0.00005,
+        decay_factor=0.0005,
         seed=seed_sim,
     )
-    
-    
+
+    initial_gap = report_tax_gap(model)
+
     # Run Simulation
     for _ in range(T_sim):
         model.step()
 
-    output = {
+    final_gap = report_tax_gap(model)
+
+    agents_output = {
         "seed": [],
         "size": [],
         "age": [],
@@ -112,35 +145,57 @@ def run_simulation(
     }
 
     for a in model.agents:
-        output["seed"].append(seed_sim)
-        output["size"].append(a.size_cat)
-        output["age"].append(a.age_cat)
-        output["tax_advisor"].append(a.has_advisor)
-        output["start"].append(a.initial_propensity)
-        output["final"].append(a.propensity)
-        output["change"].append(a.propensity - a.initial_propensity)
+        agents_output["seed"].append(seed_sim)
+        agents_output["size"].append(a.size_cat)
+        agents_output["age"].append(a.age_cat)
+        agents_output["tax_advisor"].append(a.has_advisor)
+        agents_output["start"].append(a.initial_propensity)
+        agents_output["final"].append(a.propensity)
+        agents_output["change"].append(a.propensity - a.initial_propensity)
 
-    return output
+    # SUMMARY & ROI CALCULATION
+    reduction = initial_gap - final_gap
+    total_cost = model.total_compliance_costs
+    net_benefit = reduction - total_cost
+    roi_ratio = reduction / total_cost
 
-def run_multiple(n_simulations, population_size, timesteps, filename="simulations.csv"):
+    roi_output = f"{reduction},{total_cost},{net_benefit},{roi_ratio}\n"
+
+    return agents_output, roi_output
+
+
+def run_multiple(n_simulations, population_size, timesteps):
 
     # Empty the file or create it and write the header line to it
-    with open(filename, "w") as data_file:
+    with open(
+        f"{population_size}_agents_{n_simulations}_{timesteps}_agents.csv", "w"
+    ) as data_file:
         data_file.write("seed,size,age,tax_advisor,start,final,change\n")
+
+    with open(
+        f"{population_size}_agents_{n_simulations}_{timesteps}_roi.csv", "w"
+    ) as data_file:
+        data_file.write("seed,reduction,total_cost,net_benefit,roi\n")
 
     # Run simulations with a progress bar
     for seed in tqdm(range(n_simulations)):
 
-        output = run_simulation(population_size, seed, timesteps)
+        agent_output, roi_output = run_simulation(population_size, seed, timesteps)
 
-        result = pd.DataFrame.from_dict(output)
+        agent_result = pd.DataFrame.from_dict(agent_output)
 
-        result.to_csv(filename, header=False, index=False, mode="a")
+        agent_result.to_csv(
+            f"{population_size}_agents_{n_simulations}_{timesteps}_agents.csv",
+            header=False,
+            index=False,
+            mode="a",
+        )
+
+        with open(
+            f"{population_size}_agents_{n_simulations}_{timesteps}_roi.csv", "a"
+        ) as data_file:
+            data_file.write(f"{seed},{roi_output}")
 
 
 if __name__ == "__main__":
-    run_multiple(n_simulations=5, population_size=10000, timesteps=260)
-
-
-if __name__ == "__main__":
-    run_multiple(n_simulations=5, population_size=1000)
+    run_multiple(n_simulations=50, population_size=10000, timesteps=260)
