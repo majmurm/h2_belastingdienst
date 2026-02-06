@@ -70,7 +70,7 @@ N = 10000
 
 # Demographics
 size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
-age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
+age_shares = {"Young": 0.377, "Mature": 0.241, "Old": 0.382}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target = 0.693
@@ -202,7 +202,7 @@ initial_gap = report_tax_gap(model, "INITIAL (Step 0)")
 
 
 # 2. Run Simulation
-T = 208  # time steps in weeks
+T = 260  # time steps in weeks
 
 # # Calculate interval to get x FRAMES_WANTED frames + end state for GIF
 # FRAMES_WANTED = 26

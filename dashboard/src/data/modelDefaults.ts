@@ -51,14 +51,14 @@ export const defaultModelConfig: ModelConfig = {
     "Medium-Old": 0.02,
   },
   audit_types: {
-    Light: { effect: 0.9, cost: 2340 },
-    Standard: { effect: 0.9, cost: 2340 },
-    Deep: { effect: 1.8, cost: 4680 },
+    Light: { effect: 0.45, cost: 2340 },
+    Standard: { effect: 0.45, cost: 2340 },
+    Deep: { effect: 0.9, cost: 4680 },
   },
   audit_hours: {
-    Light: Math.max(0, Math.round(2340 / 60)),
-    Standard: Math.max(0, Math.round(2340 / 60)),
-    Deep: Math.max(0, Math.round(4680 / 60)),
+    Light: Math.max(0, (2340 / 60)),
+    Standard: Math.max(0, (2340 / 60)),
+    Deep: Math.max(0, (4680 / 60)),
   },
   audit_hour_price: {
     Light: 60,

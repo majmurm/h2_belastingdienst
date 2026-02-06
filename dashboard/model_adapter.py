@@ -354,9 +354,9 @@ def default_config() -> Dict[str, Any]:
             "Medium-Old": 0.02,
         },
         "audit_types": {
-            "Light": {"effect": 0.90, "cost": 2340},
-            "Standard": {"effect": 0.90, "cost": 2340},
-            "Deep": {"effect": 1.80, "cost": 4680},
+            "Light": {"effect": 0.45, "cost": 2340},
+            "Standard": {"effect": 0.45, "cost": 2340},
+            "Deep": {"effect": 0.90, "cost": 4680},
         },
         "audit_hours": {
             "Light": max(0, round(2340 / 60)),
