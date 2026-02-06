@@ -69,8 +69,10 @@ def capture_state(model_instance):
 N = 10000
 
 # Demographics
-size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
 age_shares = {"Young": 0.377, "Mature": 0.241, "Old": 0.382}
+
+# Size shares aligned with dashboard sector-weighted defaults.
+size_shares = {"Micro": 0.967155, "Small": 0.027074, "Medium": 0.005771}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target = 0.693
