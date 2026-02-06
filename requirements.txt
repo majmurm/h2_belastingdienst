@@ -1,0 +1,5 @@
+git+https://github.com/projectmesa/mesa.git@v3.4.1
+numpy
+matplotlib
+networkx
+Pillow

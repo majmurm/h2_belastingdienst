@@ -70,7 +70,7 @@ export function InformationPanel() {
         {/* Section 4 */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <h3 className="text-slate-900 text-md font-medium mb-4">
-            3. Advanced model parameters (defaults)
+            4. Advanced model parameters (defaults)
           </h3>
           <p className="text-slate-700 leading-relaxed">
             The model uses literature-based defaults for the advanced parameters:
@@ -92,7 +92,7 @@ export function InformationPanel() {
         {/* Section 5 */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <h3 className="text-slate-900 text-md font-medium mb-4">
-            4. What drives behavior over time?
+            5. What drives behavior over time?
           </h3>
           <p className="text-slate-700 leading-relaxed">
             At every step of the simulation, a number of agents are audited, after which each
@@ -105,10 +105,10 @@ export function InformationPanel() {
           </p>
         </div>
 
-        {/* Section 5 */}
+        {/* Section 6 */}
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <h3 className="text-slate-900 text-md font-medium mb-4">
-            5. What do the outputs mean?
+            6. What do the outputs mean?
           </h3>
           <p className="text-slate-700 leading-relaxed">
             Results report mean compliance probability by size and age group, audit coverage per step, tax gap (potential vs actual collections), total intervention costs, and return of investment (ROI). 

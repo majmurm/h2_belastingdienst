@@ -69,8 +69,10 @@ def capture_state(model_instance):
 N = 10000
 
 # Demographics
-size_shares = {"Micro": 0.9683, "Small": 0.0248, "Medium": 0.0053}
-age_shares = {"Young": 0.57, "Mature": 0.04, "Old": 0.39}
+age_shares = {"Young": 0.377, "Mature": 0.241, "Old": 0.382}
+
+# Size shares aligned with dashboard sector-weighted defaults.
+size_shares = {"Micro": 0.967155, "Small": 0.027074, "Medium": 0.005771}
 
 # Compliance Targets (based on the mean of the Jaarreportage)
 C_target = 0.693
@@ -111,10 +113,10 @@ channel_effects = {
 
 # Define 3 types of audits with different effects and costs
 audit_types = {
-    "Light": {"effect": 0.90, "cost": 2340},  # IH profit return check
-    "Standard": {"effect": 0.90, "cost": 2340},  # corporate income tax return check
+    "Light": {"effect": 0.45, "cost": 2340},  # IH profit return check
+    "Standard": {"effect": 0.45, "cost": 2340},  # corporate income tax return check
     "Deep": {
-        "effect": 1.80,
+        "effect": 0.9,
         "cost": 4680,
     },  # book audit High cost for detailed audit 1 FTE hr = EUR20.11 --> 78hr per book audit (2024) --> EUR1,569 per audit
     # official source Belastingdienst: Scale 8, step 5 EUR3643 --> 1 FTE hr = EUR 21.07
@@ -202,7 +204,7 @@ initial_gap = report_tax_gap(model, "INITIAL (Step 0)")
 
 
 # 2. Run Simulation
-T = 208  # time steps in weeks
+T = 260  # time steps in weeks
 
 # # Calculate interval to get x FRAMES_WANTED frames + end state for GIF
 # FRAMES_WANTED = 26
