@@ -4,7 +4,7 @@ This repository combines a Python-based agent‑based model with a React dashboa
 
 ## ✅ What’s in this repo
 
-- **Python model**: `model.py`, `agents.py`, `report_results.py`
+- **Python model**: `model_final.py`, `agents_final.py`, `report_results_final.py`
 - **Dashboard**: `dashboard/` (React + Vite)
 - **Model adapter/API**: `dashboard/model_adapter.py`, `dashboard/scripts/model-server.mjs`
 
